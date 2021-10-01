@@ -1,0 +1,14 @@
+version: '3'
+services:
+  sync:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: sync
+    environment:
+      - CONFIG_PATH=/etc/config
+      - CONFIG_NAME=config
+    volumes:
+      - ./config.yml:/etc/config/config.yml
+    ports:
+      - 8001:8001

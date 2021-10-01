@@ -1,0 +1,14 @@
+vendor
+.idea
+.DS_STORE
+
+#Go stuff
+*.out
+c.out
+coverage.html
+.bin/
+
+# Test binary, built with `go test -c`
+*.test
+
+.env
