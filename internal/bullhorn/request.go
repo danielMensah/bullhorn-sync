@@ -4,20 +4,19 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/hashicorp/go-retryablehttp"
 )
 
-func (c Client) request(method, url string, body io.Reader, headers map[string]string) ([]byte, error) {
-	req, err := http.NewRequest(method, url, body)
+func (c Client) request(method, url string, body io.Reader) ([]byte, error) {
+	req, err := retryablehttp.NewRequest(method, url, body)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
 
-	resp, err := c.http.Do(req)
+	resp, err := c.retryClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("making request: %w", err)
 	}

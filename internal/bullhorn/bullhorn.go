@@ -1,48 +1,58 @@
 package bullhorn
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
+	"github.com/danielMensah/bullhorn-sync-poc/internal/auth"
 	"github.com/hashicorp/go-retryablehttp"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/oauth2/clientcredentials"
+	"golang.org/x/oauth2"
 )
 
-type Client struct {
-	subUrl string
-	base   string
-	http   *http.Client
+type Config struct {
+	Username        string
+	Password        string
+	SubscriptionUrl string
+	EntityUrl       string
 }
 
-func New(subUrl, entityBaseUrl string) *Client {
-	retryClient := retryablehttp.NewClient()
-	retryClient.Logger = true
+type Client struct {
+	subscriptionUrl string
+	entityUrl       string
+	retryClient     *retryablehttp.Client
+}
 
-	oauthClient := clientcredentials.Config{
-		ClientID:     cfg.WebhookIntegrationClientID,
-		ClientSecret: cfg.WebhookIntegrationClientSecret,
-		TokenURL:     fmt.Sprintf(`https://%s/oauth/token`, cfg.CustomDomain),
-		EndpointParams: map[string][]string{
-			"audience": {cfg.DefaultAudience},
-		},
+//oauthClient := oauth2.Config{
+//ClientID:     clientID,
+//ClientSecret: clientSecret,
+//Endpoint: oauth2.Endpoint{
+//AuthURL:   "https://auth-emea.bullhornstaffing.com/oauth/authorize",
+//TokenURL:  "https://rest-emea.bullhornstaffing.com/rest-services/login?version=2.0",
+//AuthStyle: 0,
+//},
+//RedirectURL: "http://www.bullhorn.com",
+//Scopes:      nil,
+//}
+
+func New(ctx context.Context, config Config, oauthConfig *oauth2.Config) *Client {
+	client, err := auth.New(ctx, config.Username, config.Password, oauthConfig)
+	if err != nil {
+
 	}
 
 	return &Client{
-		subUrl: subUrl,
-		base:   entityBaseUrl,
-		http:   retryClient.HTTPClient,
+		subscriptionUrl: config.SubscriptionUrl,
+		entityUrl:       config.EntityUrl,
+		retryClient:     client,
 	}
 }
 
 func (c *Client) GetEvents() ([]Event, error) {
-	headers := map[string]string{
-		"Authorization": "",
-	}
-	body, err := c.request("GET", c.subUrl, nil, headers)
+	body, err := c.request("GET", c.subscriptionUrl, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -60,13 +70,9 @@ func (c *Client) FetchChanges(event Event, record chan<- Record) {
 	switch event.EntityEventType {
 	case updated:
 		fields := strings.Join(event.UpdatedProperties, ",")
-		url := fmt.Sprintf("%s/entity/%s/%d?fields=%s", c.base, event.EntityName, event.EntityId, fields)
+		url := fmt.Sprintf("%s/entity/%s/%d?fields=%s", c.entityUrl, event.EntityName, event.EntityId, fields)
 
-		headers := map[string]string{
-			"Authorization": "",
-		}
-
-		body, err := c.request("GET", url, nil, headers)
+		body, err := c.request("GET", url, nil)
 		if err != nil {
 			log.WithError(err).Error("getting updated fields")
 			return

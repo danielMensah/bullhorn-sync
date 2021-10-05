@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -64,8 +65,7 @@ func (w *Worker) Run(ctx context.Context, records <-chan bullhorn.Record, wg *sy
 				return
 			}
 
-			res.
-
+			fmt.Println(res)
 			//logger.Infof("job completed: %s", messageId)
 		}
 	}
