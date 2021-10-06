@@ -3,8 +3,8 @@ module github.com/danielMensah/bullhorn-sync-poc
 go 1.16
 
 require (
-	github.com/aws/aws-sdk-go v1.40.51
-	github.com/google/uuid v1.2.0 // indirect
+	github.com/aws/aws-sdk-go v1.40.57
+	github.com/google/uuid v1.2.0
 	github.com/hashicorp/go-retryablehttp v0.7.0
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect

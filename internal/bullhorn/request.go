@@ -16,7 +16,7 @@ func (c Client) request(method, url string, body io.Reader) ([]byte, error) {
 
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.retryClient.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("making request: %w", err)
 	}

@@ -20,8 +20,6 @@ var (
 	logger       = log.New(os.Stderr, "", log.LstdFlags)
 )
 
-type Auth *retryablehttp.Client
-
 type Oauth2 interface {
 	// AuthCodeURL returns a URL to OAuth 2.0 provider's consent page
 	// that asks for permissions for the required scopes explicitly.
@@ -32,7 +30,7 @@ type Oauth2 interface {
 	Client(ctx context.Context, t *oauth2.Token) *http.Client
 }
 
-func New(ctx context.Context, usr, pass string, oauth Oauth2) (Auth, error) {
+func New(ctx context.Context, usr, pass string, oauth Oauth2) (*retryablehttp.Client, error) {
 	state := getState(10)
 
 	action := oauth2.SetAuthURLParam("action", "Login")
