@@ -18,13 +18,16 @@ const (
 
 var (
 	tokenServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
 		_, _ = fmt.Fprint(w, "access_token=eeybb")
 	}))
 	validSubServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = fmt.Fprintln(w, validSub)
+		w.WriteHeader(200)
+		_, _ = fmt.Fprint(w, validSub)
 	}))
 	invalidSubServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = fmt.Fprintln(w, invalidSub)
+		w.WriteHeader(400)
+		_, _ = fmt.Fprint(w, invalidSub)
 	}))
 )
 
