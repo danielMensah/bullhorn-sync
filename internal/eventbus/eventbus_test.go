@@ -18,7 +18,7 @@ var (
 		Entries: []*eventbridge.PutEventsRequestEntry{
 			{
 				Detail:       aws.String(`{"eventId":"371cdde3-4a24-4174-ba1c-c5cf6a4b672f","eventTimestamp":1624272788,"entityName":"Candidate","entityId":734,"entityEventType":"UPDATED","updatedProperties":["name","dob"]}`),
-				DetailType:   aws.String("UPDATED"),
+				DetailType:   aws.String("Candidate"),
 				EventBusName: aws.String("bullhorn-sync"),
 				Source:       aws.String("bullhorn-sync.ingestion"),
 				Time:         &date,
@@ -132,7 +132,7 @@ func TestClient_Put(t *testing.T) {
 			}
 
 			c := Client{eventbus: tt.bus}
-			err := c.Put(tt.ctx, tt.events)
+			err := c.SendIngestedEvents(tt.ctx, IngestionSource, tt.events)
 
 			if tt.expectedErr == "" {
 				assert.NoError(t, err)

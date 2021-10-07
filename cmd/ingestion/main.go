@@ -23,7 +23,7 @@ func main() {
 
 	c := cron.New()
 	_, err = c.AddFunc(cfg.CronSpec, func() {
-		syncEntities(ctx, cfg)
+		ingest(ctx, cfg)
 	})
 	if err != nil {
 		log.WithError(err).Fatal("could not start cron job")
@@ -32,7 +32,7 @@ func main() {
 	c.Run()
 }
 
-func syncEntities(ctx context.Context, cfg config.Config) {
+func ingest(ctx context.Context, cfg config.Config) {
 	bhClient, err := bullhorn.New(ctx, cfg.BhConfig, cfg.Oauth2Config)
 	if err != nil {
 		log.WithError(err).Fatal("new bullhorn client")
@@ -44,7 +44,7 @@ func syncEntities(ctx context.Context, cfg config.Config) {
 	}
 
 	bus := eventbus.New(cfg.Region)
-	err = bus.Put(ctx, events)
+	err = bus.SendIngestedEvents(ctx, eventbus.IngestionSource, events)
 	if err != nil {
 		log.WithError(err).Error("bus")
 	}

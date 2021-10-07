@@ -4,10 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/danielMensah/bullhorn-sync-poc/internal/auth"
 	"github.com/hashicorp/go-retryablehttp"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
+)
+
+var (
+	updated  = "UPDATED"
+	inserted = "INSERTED"
+	deleted  = "DELETED"
 )
 
 type Config struct {
@@ -49,4 +57,45 @@ func (c *Client) GetEvents() ([]Event, error) {
 	}
 
 	return response.Events, nil
+}
+
+func (c *Client) FetchEntityChanges(event Event) (Entity, error) {
+	switch event.EntityEventType {
+	case updated:
+		fields := strings.Join(event.UpdatedProperties, ",")
+		url := fmt.Sprintf("%s/entity/%s/%d?fields=%s", c.entityUrl, event.EntityName, event.EntityId, fields)
+
+		body, err := c.request("GET", url, nil)
+		if err != nil {
+			return Entity{}, fmt.Errorf("failed getting entity (%s) with id: %d : %w", event.EntityName, event.EntityId, err)
+		}
+
+		return Entity{
+			Id:        event.EntityId,
+			Name:      event.EntityName,
+			Changes:   string(body),
+			Timestamp: event.EventTimestamp,
+		}, nil
+	case inserted:
+		fields := strings.Join(event.UpdatedProperties, ",")
+		url := fmt.Sprintf("%s/entity/%s/%d?fields=%s", c.entityUrl, event.EntityName, event.EntityId, fields)
+
+		body, err := c.request("GET", url, nil)
+		if err != nil {
+			return Entity{}, fmt.Errorf("failed getting entity (%s) with id: %d : %w", event.EntityName, event.EntityId, err)
+		}
+
+		return Entity{
+			Id:        event.EntityId,
+			Name:      event.EntityName,
+			Changes:   string(body),
+			Timestamp: event.EventTimestamp,
+		}, nil
+	case deleted:
+		// TODO
+	default:
+		log.Errorf("entity event type not supported: %s", event.EntityEventType)
+	}
+
+	return Entity{}, nil
 }

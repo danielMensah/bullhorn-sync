@@ -15,3 +15,10 @@ type Event struct {
 	EntityEventType   string   `json:"entityEventType"`
 	UpdatedProperties []string `json:"updatedProperties"`
 }
+
+type Entity struct {
+	Id        int
+	Name      string
+	Changes   string
+	Timestamp int64
+}
