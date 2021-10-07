@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"math/rand"
@@ -20,6 +21,7 @@ var (
 	logger       = log.New(os.Stderr, "", log.LstdFlags)
 )
 
+// Oauth2 exposes oath2 methods
 type Oauth2 interface {
 	// AuthCodeURL returns a URL to OAuth 2.0 provider's consent page
 	// that asks for permissions for the required scopes explicitly.
@@ -38,13 +40,22 @@ func New(ctx context.Context, usr, pass string, oauth Oauth2) (*retryablehttp.Cl
 	password := oauth2.SetAuthURLParam("password", pass)
 
 	code := oauth.AuthCodeURL(state, action, username, password)
+	if code == "" {
+		return nil, errors.New("authorization code is empty")
+	}
+
 	token, err := oauth.Exchange(ctx, code)
 	if err != nil {
 		return nil, fmt.Errorf("exchanging code for token: %w", err)
 	}
 
+	httpClient := oauth.Client(ctx, token)
+	if httpClient == nil {
+		return nil, errors.New("could not instantiate oauth http client")
+	}
+
 	return &retryablehttp.Client{
-		HTTPClient:   oauth.Client(ctx, token),
+		HTTPClient:   httpClient,
 		Logger:       logger,
 		RetryWaitMin: retryWaitMin,
 		RetryWaitMax: retryWaitMax,

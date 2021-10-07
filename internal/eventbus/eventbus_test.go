@@ -2,6 +2,7 @@ package eventbus
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 )
 
 var (
-	tt        = time.Date(2021, time.June, 21, 10, 53, 8, 0, time.UTC)
+	date      = time.Date(2021, time.June, 21, 10, 53, 8, 0, time.UTC)
 	putevents = &eventbridge.PutEventsInput{
 		Entries: []*eventbridge.PutEventsRequestEntry{
 			{
@@ -20,7 +21,7 @@ var (
 				DetailType:   aws.String("UPDATED"),
 				EventBusName: aws.String("bullhorn-sync"),
 				Source:       aws.String("bullhorn-sync.ingestion"),
-				Time:         &tt,
+				Time:         &date,
 			},
 		},
 	}
@@ -35,17 +36,19 @@ func TestClient_Put(t *testing.T) {
 	tests := []struct {
 		name        string
 		bus         *Mock
+		ctx         context.Context
 		events      []bullhorn.Event
 		expectMocks func(t *testing.T, bus *Mock)
 		expectedErr string
 	}{
 		{
-			name: "ok",
+			name: "successfully put into eventBridge",
 			bus:  &Mock{},
+			ctx:  context.TODO(),
 			events: []bullhorn.Event{
 				{
 					EventId:           "371cdde3-4a24-4174-ba1c-c5cf6a4b672f",
-					EventTimestamp:    tt.Unix(),
+					EventTimestamp:    date.Unix(),
 					EntityName:        "Candidate",
 					EntityId:          734,
 					EntityEventType:   "UPDATED",
@@ -68,6 +71,59 @@ func TestClient_Put(t *testing.T) {
 			},
 			expectedErr: "",
 		},
+		{
+			name: "failed to put into eventBridge",
+			bus:  &Mock{},
+			ctx:  context.TODO(),
+			events: []bullhorn.Event{
+				{
+					EventId:           "371cdde3-4a24-4174-ba1c-c5cf6a4b672f",
+					EventTimestamp:    date.Unix(),
+					EntityName:        "Candidate",
+					EntityId:          734,
+					EntityEventType:   "UPDATED",
+					UpdatedProperties: []string{"name", "dob"},
+				},
+			},
+			expectMocks: func(t *testing.T, bus *Mock) {
+				failedCount := int64(1)
+				errorCode := "400"
+				errorMessage := "something went wrong"
+
+				output := &eventbridge.PutEventsOutput{
+					Entries: []*eventbridge.PutEventsResultEntry{
+						{
+							ErrorCode:    &errorCode,
+							ErrorMessage: &errorMessage,
+						},
+					},
+					FailedEntryCount: &failedCount,
+				}
+
+				bus.On("PutEventsWithContext", context.TODO(), putevents).Return(output, nil)
+			},
+			expectedErr: "",
+		},
+
+		{
+			name: "eventBridge put error",
+			bus:  &Mock{},
+			ctx:  nil,
+			events: []bullhorn.Event{
+				{
+					EventId:           "371cdde3-4a24-4174-ba1c-c5cf6a4b672f",
+					EventTimestamp:    date.Unix(),
+					EntityName:        "Candidate",
+					EntityId:          734,
+					EntityEventType:   "UPDATED",
+					UpdatedProperties: []string{"name", "dob"},
+				},
+			},
+			expectMocks: func(t *testing.T, bus *Mock) {
+				bus.On("PutEventsWithContext", nil, putevents).Return(nil, errors.New("some error"))
+			},
+			expectedErr: "putting events into eventBridge",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -76,7 +132,7 @@ func TestClient_Put(t *testing.T) {
 			}
 
 			c := Client{eventbus: tt.bus}
-			err := c.Put(context.TODO(), tt.events)
+			err := c.Put(tt.ctx, tt.events)
 
 			if tt.expectedErr == "" {
 				assert.NoError(t, err)

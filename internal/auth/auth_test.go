@@ -82,6 +82,65 @@ func TestNew(t *testing.T) {
 			},
 			expectedError: "exchanging code for token: boom",
 		},
+		{
+			name:     "empty auth code",
+			username: "usr",
+			password: "pass",
+			auth:     &Mock{},
+			oauthConfig: oauth2.Config{
+				ClientID:     "clientID",
+				ClientSecret: "secret",
+				Endpoint: oauth2.Endpoint{
+					AuthURL:   "authUrl",
+					TokenURL:  "tokeUrl",
+					AuthStyle: 0,
+				},
+				RedirectURL: "redirectUrl",
+				Scopes:      nil,
+			},
+			expectMocks: func(t *testing.T, auth *Mock) {
+				action := oauth2.SetAuthURLParam("action", "Login")
+				username := oauth2.SetAuthURLParam("username", "usr")
+				password := oauth2.SetAuthURLParam("password", "pass")
+
+				l := []oauth2.AuthCodeOption{action, username, password}
+
+				auth.On("AuthCodeURL", mock.Anything, l).Return(nil)
+			},
+			expectedError: "authorization code is empty",
+		},
+		{
+			name:     "cannot instantiate http client",
+			username: "usr",
+			password: "pass",
+			auth:     &Mock{},
+			oauthConfig: oauth2.Config{
+				ClientID:     "clientID",
+				ClientSecret: "secret",
+				Endpoint: oauth2.Endpoint{
+					AuthURL:   "authUrl",
+					TokenURL:  "tokeUrl",
+					AuthStyle: 0,
+				},
+				RedirectURL: "redirectUrl",
+				Scopes:      nil,
+			},
+			expectMocks: func(t *testing.T, auth *Mock) {
+				action := oauth2.SetAuthURLParam("action", "Login")
+				username := oauth2.SetAuthURLParam("username", "usr")
+				password := oauth2.SetAuthURLParam("password", "pass")
+
+				ctx := context.TODO()
+				token := &oauth2.Token{}
+				l := []oauth2.AuthCodeOption{action, username, password}
+				var d []oauth2.AuthCodeOption
+
+				auth.On("AuthCodeURL", mock.Anything, l).Return("code")
+				auth.On("Exchange", ctx, mock.Anything, d).Return(token, nil)
+				auth.On("Client", ctx, token).Return(nil)
+			},
+			expectedError: "could not instantiate oauth http client",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
