@@ -11,4 +11,4 @@ coverage.html
 # Test binary, built with `go test -c`
 *.test
 
-.env
+app.env

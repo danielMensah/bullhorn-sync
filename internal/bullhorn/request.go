@@ -8,7 +8,7 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 )
 
-func (c Client) request(method, url string, body io.Reader) ([]byte, error) {
+func (c *Client) request(method, url string, body interface{}) ([]byte, error) {
 	req, err := retryablehttp.NewRequest(method, url, body)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)

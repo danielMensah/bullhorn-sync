@@ -11,14 +11,15 @@ type Event struct {
 	EventId           string   `json:"eventId"`
 	EventTimestamp    int64    `json:"eventTimestamp"`
 	EntityName        string   `json:"entityName"`
-	EntityId          int      `json:"entityId"`
+	EntityId          int32    `json:"entityId"`
 	EntityEventType   string   `json:"entityEventType"`
 	UpdatedProperties []string `json:"updatedProperties"`
 }
 
+// Entity models entities from subscription request response
 type Entity struct {
-	Id        int
+	Id        int32
 	Name      string
-	Changes   string
+	Changes   []byte
 	Timestamp int64
 }
