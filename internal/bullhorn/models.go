@@ -1,5 +1,7 @@
 package bullhorn
 
+import "time"
+
 // RequestResponse models subscription request response
 type RequestResponse struct {
 	RequestId int     `json:"requestId"`
@@ -21,5 +23,5 @@ type Entity struct {
 	Id        int32
 	Name      string
 	Changes   []byte
-	Timestamp int64
+	Timestamp time.Time
 }

@@ -85,7 +85,7 @@ func (c *Client) GetEvents() ([]*pb.Event, error) {
 }
 
 // FetchEntityChanges fetches the changes for a given entity
-func (c *Client) FetchEntityChanges(event Event) (*Entity, error) {
+func (c *Client) FetchEntityChanges(event *pb.Event) (*Entity, error) {
 	switch event.EntityEventType {
 	case _eventTypeUpdated:
 		fields := strings.Join(event.UpdatedProperties, ",")
@@ -100,7 +100,7 @@ func (c *Client) FetchEntityChanges(event Event) (*Entity, error) {
 			Id:        event.EntityId,
 			Name:      event.EntityName,
 			Changes:   body,
-			Timestamp: event.EventTimestamp,
+			Timestamp: event.EventTimestamp.AsTime(),
 		}, nil
 	case _eventTypeInserted:
 		fields := strings.Join(event.UpdatedProperties, ",")
@@ -115,7 +115,7 @@ func (c *Client) FetchEntityChanges(event Event) (*Entity, error) {
 			Id:        event.EntityId,
 			Name:      event.EntityName,
 			Changes:   body,
-			Timestamp: event.EventTimestamp,
+			Timestamp: event.EventTimestamp.AsTime(),
 		}, nil
 	case _eventTypeDeleted:
 		// delete event entity

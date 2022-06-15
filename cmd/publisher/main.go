@@ -21,7 +21,7 @@ func main() {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	messenger, err := kafka.NewMessenger(ctx, cfg.KafkaAddress)
+	messenger, err := kafka.NewPublisher(ctx, cfg.KafkaAddress)
 	if err != nil {
 		log.Fatal(err)
 	}
