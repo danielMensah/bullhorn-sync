@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package bullhorn.event;
+
+option go_package = "github.com/danielMensah/bullhorn-sync-poc/internal/proto";
+
+import "bullhorn_event.proto";
+
+message EventsWrapper {
+  repeated Event events = 1;
+}
+
+service PublisherService {
+  rpc Publish(EventsWrapper) returns (google.protobuf.Empty);
+}

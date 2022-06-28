@@ -16,12 +16,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-var (
-	_eventTypeUpdated  = "UPDATED"
-	_eventTypeInserted = "INSERTED"
-	_eventTypeDeleted  = "DELETED"
-)
-
 // Client is the Bullhorn client
 type Client struct {
 	subscriptionUrl string
@@ -29,8 +23,13 @@ type Client struct {
 	httpClient      *retryablehttp.Client
 }
 
+type Bullhorn interface {
+	GetEvents() ([]*pb.Event, error)
+	FetchEntityChanges(event *pb.Event) (*Entity, error)
+}
+
 // New returns a new Bullhorn client.
-func New(ctx context.Context, config *config.Config) (*Client, error) {
+func New(ctx context.Context, config *config.Config) (Bullhorn, error) {
 	oauthConfig := &oauth2.Config{
 		ClientID:     config.BullhornClientID,
 		ClientSecret: config.BullhornSecret,
@@ -87,7 +86,8 @@ func (c *Client) GetEvents() ([]*pb.Event, error) {
 // FetchEntityChanges fetches the changes for a given entity
 func (c *Client) FetchEntityChanges(event *pb.Event) (*Entity, error) {
 	switch event.EntityEventType {
-	case _eventTypeUpdated:
+	case pb.EventType_UPDATED:
+
 		fields := strings.Join(event.UpdatedProperties, ",")
 		url := fmt.Sprintf("%s/entity/%s/%d?fields=%s", c.entityUrl, event.EntityName, event.EntityId, fields)
 
@@ -100,9 +100,9 @@ func (c *Client) FetchEntityChanges(event *pb.Event) (*Entity, error) {
 			Id:        event.EntityId,
 			Name:      event.EntityName,
 			Changes:   body,
-			Timestamp: event.EventTimestamp.AsTime(),
+			Timestamp: event.EventTimestamp,
 		}, nil
-	case _eventTypeInserted:
+	case pb.EventType_INSERTED:
 		fields := strings.Join(event.UpdatedProperties, ",")
 		url := fmt.Sprintf("%s/entity/%s/%d?fields=%s", c.entityUrl, event.EntityName, event.EntityId, fields)
 
@@ -115,9 +115,9 @@ func (c *Client) FetchEntityChanges(event *pb.Event) (*Entity, error) {
 			Id:        event.EntityId,
 			Name:      event.EntityName,
 			Changes:   body,
-			Timestamp: event.EventTimestamp.AsTime(),
+			Timestamp: event.EventTimestamp,
 		}, nil
-	case _eventTypeDeleted:
+	case pb.EventType_DELETED:
 		// delete event entity
 	default:
 		log.Errorf("entity event type not supported: %s", event.EntityEventType)

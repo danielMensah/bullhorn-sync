@@ -3,10 +3,13 @@ package kafka
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
+	"github.com/danielMensah/bullhorn-sync-poc/internal/bullhorn"
 	pb "github.com/danielMensah/bullhorn-sync-poc/internal/proto"
 	kaf "github.com/segmentio/kafka-go"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -15,7 +18,7 @@ type PublisherClient struct {
 }
 
 type Publisher interface {
-	Pub(events []*pb.Event) error
+	Publish(ctx context.Context, event <-chan *bullhorn.Entity, wg *sync.WaitGroup)
 	Close() error
 }
 
@@ -35,26 +38,41 @@ func NewPublisher(ctx context.Context, addr string) (Publisher, error) {
 	return &PublisherClient{Conn: conn}, nil
 }
 
-func (c *PublisherClient) Pub(events []*pb.Event) error {
-	messages := make([]kaf.Message, len(events))
-	for _, event := range events {
-		data, err := proto.Marshal(event)
-		if err != nil {
-			return fmt.Errorf("failed to marshal event: %w", err)
+func (c *PublisherClient) Publish(ctx context.Context, entityEvent <-chan *bullhorn.Entity, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case entity, ok := <-entityEvent:
+			if !ok {
+				return
+			}
+
+			p := &pb.Entity{
+				Id:             entity.Id,
+				Name:           entity.Name,
+				Changes:        entity.Changes,
+				EventTimestamp: entity.Timestamp,
+			}
+
+			data, err := proto.Marshal(p)
+			if err != nil {
+				log.WithError(err).Error("marshalling proto event")
+				return
+			}
+
+			_, err = c.Conn.WriteMessages(kaf.Message{
+				Value: data,
+				Topic: fmt.Sprintf("event_%s", entity.Name),
+			})
+			if err != nil {
+				log.WithError(err).Error("writing message")
+				return
+			}
 		}
-
-		messages = append(messages, kaf.Message{
-			Value: data,
-			Topic: fmt.Sprintf("event_%s", event.EntityEventType),
-		})
 	}
-
-	_, err := c.Conn.WriteMessages(messages...)
-	if err != nil {
-		return fmt.Errorf("failed to write messages: %w", err)
-	}
-
-	return nil
 }
 
 func (c *PublisherClient) Close() error {

@@ -1,53 +1,37 @@
 package main
 
 import (
-	"context"
-	"os"
-	"os/signal"
-	"syscall"
+	"net"
 
-	"github.com/danielMensah/bullhorn-sync-poc/internal/bullhorn"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/config"
-	"github.com/danielMensah/bullhorn-sync-poc/internal/kafka"
+	pb "github.com/danielMensah/bullhorn-sync-poc/internal/proto"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 )
 
-func main() {
-	log.SetFormatter(&log.JSONFormatter{})
+var address = "0.0.0.0:50051"
 
+type Server struct {
+	pb.PublisherServiceServer
+}
+
+func main() {
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.WithError(err).Fatal("getting configs")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	messenger, err := kafka.NewPublisher(ctx, cfg.KafkaAddress)
+	listener, err := net.Listen("tcp", cfg.RPCAddress)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("failed to listen: %v\n", err)
 	}
 
-	bhClient, err := bullhorn.New(ctx, cfg)
-	if err != nil {
-		log.WithError(err).Fatal("new bullhorn client")
+	log.Printf("gRPC server listening on %s\n", address)
+
+	s := grpc.NewServer()
+	pb.RegisterPublisherServiceServer(s, &Server{})
+
+	if err = s.Serve(listener); err != nil {
+		log.Fatalf("failed to serve: %v\n", err)
 	}
-
-	events, err := bhClient.GetEvents()
-	if err != nil {
-		log.WithError(err).Fatal("getting entities")
-	}
-
-	err = messenger.Pub(events)
-
-	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-		<-c
-		log.Info("terminate signal received, exiting...")
-		if err := messenger.Close(); err != nil {
-			log.Error("shutting down:", err)
-		}
-		cancel()
-	}()
-
-	log.Info("Producer started")
 }

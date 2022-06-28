@@ -11,16 +11,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type SubscriberClient struct {
-	Reader *kaf.Reader
+type ConsumerClient struct {
+	reader *kaf.Reader
 }
 
-type Subscriber interface {
-	Sub(ctx context.Context, event chan<- *pb.Event)
+type Consumer interface {
+	Consume(ctx context.Context, event chan<- *pb.Event)
 	Close() error
 }
 
-func NewSubscriber(topic string, addr string) Subscriber {
+func NewConsumer(topic string, addr string) Consumer {
 	reader := kaf.NewReader(kaf.ReaderConfig{
 		Brokers: []string{addr},
 		Topic:   topic,
@@ -32,16 +32,17 @@ func NewSubscriber(topic string, addr string) Subscriber {
 		},
 	})
 
-	return &SubscriberClient{Reader: reader}
+	return &ConsumerClient{reader: reader}
 }
 
-func (s *SubscriberClient) Sub(ctx context.Context, event chan<- *pb.Event) {
+func (s *ConsumerClient) Consume(ctx context.Context, event chan<- *pb.Event) {
 	for {
 		select {
 		case <-ctx.Done():
+			close(event)
 			return
 		default:
-			msg, err := s.Reader.ReadMessage(ctx)
+			msg, err := s.reader.ReadMessage(ctx)
 			if err != nil {
 				log.WithError(err).Error("failed to read message")
 			}
@@ -57,6 +58,6 @@ func (s *SubscriberClient) Sub(ctx context.Context, event chan<- *pb.Event) {
 	}
 }
 
-func (s *SubscriberClient) Close() error {
-	return s.Reader.Close()
+func (s *ConsumerClient) Close() error {
+	return s.reader.Close()
 }
