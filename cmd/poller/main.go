@@ -4,11 +4,13 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/danielMensah/bullhorn-sync-poc/internal/bullhorn"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/config"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/kafka"
+	"github.com/danielMensah/bullhorn-sync-poc/internal/poller"
 	pb "github.com/danielMensah/bullhorn-sync-poc/internal/proto"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -23,48 +25,62 @@ func main() {
 		log.WithError(err).Fatal("getting configs")
 	}
 
-	conn, err := grpc.Dial(cfg.RPCAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	ctx, cancel := context.WithCancel(context.Background())
+	conn, err := grpc.DialContext(ctx, cfg.RPCAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("did not connect: %v\n", err)
 	}
 	defer conn.Close()
 
-	ctx, cancel := context.WithCancel(context.Background())
 	messenger, err := kafka.NewPublisher(ctx, cfg.KafkaAddress)
 	if err != nil {
-		log.Fatal(err)
+		log.WithError(err).Fatal("cannot create new publisher")
 	}
 
 	bhClient, err := bullhorn.New(ctx, cfg)
 	if err != nil {
 		log.WithError(err).Fatal("new bullhorn client")
 	}
+	p := poller.New(bhClient)
 
-	events, err := bhClient.GetEvents()
-	if err != nil {
-		log.WithError(err).Fatal("getting entities")
+	records := make(chan []*pb.Event)
+	wg := &sync.WaitGroup{}
+
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go sendToPublisher(ctx, conn, records, wg)
 	}
 
-	c := pb.NewPublisherServiceClient(conn)
-	wrappedEvent := &pb.EventsWrapper{
-		Events: events,
-	}
-
-	_, err = c.Publish(ctx, wrappedEvent)
-	if err != nil {
-		log.WithError(err).Fatal("sending wrapped events to publisher")
-	}
+	p.Run(records)
+	wg.Wait()
 
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		<-c
+		close(p.Done)
 		log.Info("terminate signal received, exiting...")
+
 		if err := messenger.Close(); err != nil {
 			log.Error("shutting down:", err)
 		}
+
 		cancel()
 	}()
 
 	log.Info("Producer started")
+}
+
+func sendToPublisher(ctx context.Context, conn *grpc.ClientConn, records <-chan []*pb.Event, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	c := pb.NewPublisherServiceClient(conn)
+	wrappedEvent := &pb.EventsWrapper{
+		Events: <-records,
+	}
+
+	_, err := c.Publish(ctx, wrappedEvent)
+	if err != nil {
+		log.WithError(err).Fatal("sending wrapped events to publisher")
+	}
 }
