@@ -7,7 +7,7 @@ import (
 )
 
 type Config struct {
-	RPCAddress               string   `mapstructure:"RPC_ADDRESS"`
+	KafkaAddress             string   `mapstructure:"KAFKA_ADDRESS"`
 	BullhornUsername         string   `mapstructure:"BULLHORN_USERNAME"`
 	BullhornPassword         string   `mapstructure:"BULLHORN_PASSWORD"`
 	BullhornSubscriptionUrl  string   `mapstructure:"BULLHORN_SUBSCRIPTION_URL"`
@@ -17,7 +17,6 @@ type Config struct {
 	BullhornAuthUrl          string   `mapstructure:"BULLHORN_AUTH_URL"`
 	BullhornTokenUrl         string   `mapstructure:"BULLHORN_TOKEN_URL"`
 	BullhornRedirectUrl      string   `mapstructure:"BULLHORN_REDIRECT_URL"`
-	KafkaAddress             string   `mapstructure:"KAFKA_ADDRESS"`
 	CassandraHosts           []string `mapstructure:"CASSANDRA_HOSTS"`
 	CassandraKeyspace        string   `mapstructure:"CASSANDRA_KEYSPACE"`
 	CassandraUsername        string   `mapstructure:"CASSANDRA_USERNAME"`

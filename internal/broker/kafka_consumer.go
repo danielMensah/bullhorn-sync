@@ -1,4 +1,4 @@
-package kafka
+package broker
 
 import (
 	"context"
@@ -10,16 +10,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type ConsumerClient struct {
+type KafkaConsumerClient struct {
 	reader *kaf.Reader
 }
 
-type Consumer interface {
-	Consume(ctx context.Context, event chan<- *EventWrapper)
-	Close() error
-}
-
-func NewConsumer(topic string, addr string) Consumer {
+func NewKafkaConsumer(topic string, addr string) Consumer {
 	reader := kaf.NewReader(kaf.ReaderConfig{
 		Brokers: []string{addr},
 		Topic:   topic,
@@ -31,10 +26,10 @@ func NewConsumer(topic string, addr string) Consumer {
 		},
 	})
 
-	return &ConsumerClient{reader: reader}
+	return &KafkaConsumerClient{reader: reader}
 }
 
-func (s *ConsumerClient) Consume(ctx context.Context, event chan<- *EventWrapper) {
+func (s *KafkaConsumerClient) Consume(ctx context.Context, event chan<- *EventWrapper) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -57,6 +52,6 @@ func (s *ConsumerClient) Consume(ctx context.Context, event chan<- *EventWrapper
 	}
 }
 
-func (s *ConsumerClient) Close() error {
+func (s *KafkaConsumerClient) Close() error {
 	return s.reader.Close()
 }

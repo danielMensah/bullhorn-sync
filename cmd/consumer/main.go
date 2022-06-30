@@ -7,9 +7,9 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/danielMensah/bullhorn-sync-poc/internal/broker"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/config"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/consumer"
-	"github.com/danielMensah/bullhorn-sync-poc/internal/kafka"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/repository"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/wpool"
 	log "github.com/sirupsen/logrus"
@@ -30,30 +30,29 @@ func main() {
 		log.WithError(err).Fatal("creating new repository")
 	}
 
-	kafkaConsumer := kafka.NewConsumer("candidate", cfg.KafkaAddress)
+	brokerConsumer := broker.NewKafkaConsumer("candidate", cfg.KafkaAddress)
 	entityConsumer := consumer.New(repo)
 
 	pool := wpool.New(20)
 	pool.Run(ctx)
 
-	entities := make(chan *kafka.EventWrapper)
+	entities := make(chan *broker.EventWrapper)
 	wg := &sync.WaitGroup{}
 
 	for i := 0; i < 20; i++ {
 		wg.Add(1)
-		go pool.AddJob(ctx, entities, entityConsumer)
+		go pool.AddJob(ctx, entities, entityConsumer, wg)
 	}
 
-	kafkaConsumer.Consume(ctx, entities)
+	brokerConsumer.Consume(ctx, entities)
 	wg.Wait()
-	close(entities)
 
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		<-c
 
-		if err = kafkaConsumer.Close(); err != nil {
+		if err = brokerConsumer.Close(); err != nil {
 			log.WithError(err).Fatal("closing kafka consumer")
 		}
 

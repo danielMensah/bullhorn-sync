@@ -9,20 +9,20 @@ import (
 	"github.com/danielMensah/bullhorn-sync-poc/internal/repository"
 )
 
-func (c *Consumer) ConsumeCandidate(ctx context.Context, entity *bullhorn.Entity) error {
+func (c *Client) ConsumeCandidate(ctx context.Context, entity *bullhorn.Entity) error {
 	switch entity.EventType {
 	case bullhorn.EventTypeInserted:
-		err := c.insertCandidate(ctx, entity)
+		err := c.insert(ctx, entity)
 		if err != nil {
 			return err
 		}
 	case bullhorn.EventTypeUpdated:
-		err := c.updateCandidate(ctx, entity)
+		err := c.update(ctx, entity)
 		if err != nil {
 			return err
 		}
 	case bullhorn.EventTypeDeleted:
-		err := c.deleteCandidate(ctx, entity)
+		err := c.delete(ctx, entity)
 		if err != nil {
 			return err
 		}
@@ -33,7 +33,7 @@ func (c *Consumer) ConsumeCandidate(ctx context.Context, entity *bullhorn.Entity
 	return nil
 }
 
-func (c *Consumer) insertCandidate(ctx context.Context, entity *bullhorn.Entity) error {
+func (c *Client) insert(ctx context.Context, entity *bullhorn.Entity) error {
 	var candidate repository.Candidate
 
 	err := json.Unmarshal(entity.Changes, &candidate)
@@ -57,7 +57,7 @@ func (c *Consumer) insertCandidate(ctx context.Context, entity *bullhorn.Entity)
 	return nil
 }
 
-func (c *Consumer) updateCandidate(ctx context.Context, entity *bullhorn.Entity) error {
+func (c *Client) update(ctx context.Context, entity *bullhorn.Entity) error {
 	var candidate repository.Candidate
 
 	err := json.Unmarshal(entity.Changes, &candidate)
@@ -81,7 +81,7 @@ func (c *Consumer) updateCandidate(ctx context.Context, entity *bullhorn.Entity)
 	return nil
 }
 
-func (c *Consumer) deleteCandidate(ctx context.Context, entity *bullhorn.Entity) error {
+func (c *Client) delete(ctx context.Context, entity *bullhorn.Entity) error {
 	// validations and transformations can happen here
 
 	err := c.repo.Delete(ctx, entity.Id, entity.Name)

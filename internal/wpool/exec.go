@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync"
 
+	"github.com/danielMensah/bullhorn-sync-poc/internal/broker"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/bullhorn"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/consumer"
-	"github.com/danielMensah/bullhorn-sync-poc/internal/kafka"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -56,7 +56,9 @@ func (wp *Pool) worker(ctx context.Context, wg *sync.WaitGroup, jobs <-chan Job,
 	}
 }
 
-func (wp *Pool) AddJob(ctx context.Context, events <-chan *kafka.EventWrapper, consumer *consumer.Consumer) {
+func (wp *Pool) AddJob(ctx context.Context, events <-chan *broker.EventWrapper, consumer *consumer.Client, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	for {
 		select {
 		case <-ctx.Done():

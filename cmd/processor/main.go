@@ -4,12 +4,13 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 
+	"github.com/danielMensah/bullhorn-sync-poc/internal/broker"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/bullhorn"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/config"
-	"github.com/danielMensah/bullhorn-sync-poc/internal/kafka"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -23,9 +24,9 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	consumer := kafka.NewConsumer("poller_events", cfg.KafkaAddress)
+	consumer := broker.NewKafkaConsumer("poller_events", cfg.KafkaAddress)
 
-	publisher, err := kafka.NewPublisher(ctx, cfg.KafkaAddress)
+	publisher, err := broker.NewKafkaPublisher(ctx, cfg.KafkaAddress)
 	if err != nil {
 		log.WithError(err).Fatal("creating new publisher")
 	}
@@ -35,8 +36,8 @@ func main() {
 		log.WithError(err).Fatal("creating new bullhorn")
 	}
 
-	publisherEvents := make(chan *kafka.EventWrapper)
-	pollerEvents := make(chan *kafka.EventWrapper)
+	publisherEvents := make(chan *broker.EventWrapper)
+	pollerEvents := make(chan *broker.EventWrapper)
 
 	wg := &sync.WaitGroup{}
 
@@ -62,8 +63,8 @@ func main() {
 func processEntity(
 	ctx context.Context,
 	bhClient bullhorn.Bullhorn,
-	pollerEvents <-chan *kafka.EventWrapper,
-	publisherEvents chan<- *kafka.EventWrapper, wg *sync.WaitGroup,
+	pollerEvents <-chan *broker.EventWrapper,
+	publisherEvents chan<- *broker.EventWrapper, wg *sync.WaitGroup,
 ) {
 	defer wg.Done()
 
@@ -85,8 +86,8 @@ func processEntity(
 					log.WithError(err).Error("fetching entity changes")
 				}
 
-				publisherEvents <- &kafka.EventWrapper{
-					Topic: entity.Name,
+				publisherEvents <- &broker.EventWrapper{
+					Topic: strings.ToLower(entity.Name),
 					Data:  entity.Changes,
 				}
 			}

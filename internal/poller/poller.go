@@ -3,8 +3,8 @@ package poller
 import (
 	"time"
 
+	"github.com/danielMensah/bullhorn-sync-poc/internal/broker"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/bullhorn"
-	"github.com/danielMensah/bullhorn-sync-poc/internal/kafka"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -20,7 +20,7 @@ func New(bhClient bullhorn.Bullhorn) *Poller {
 	}
 }
 
-func (p *Poller) Run(events chan<- *kafka.EventWrapper) {
+func (p *Poller) Run(events chan<- *broker.EventWrapper) {
 	for {
 		select {
 		case <-p.Done:
@@ -32,7 +32,7 @@ func (p *Poller) Run(events chan<- *kafka.EventWrapper) {
 				log.WithError(err).Error("getting entities")
 			}
 
-			events <- &kafka.EventWrapper{
+			events <- &broker.EventWrapper{
 				Topic: "poll_event",
 				Data:  fetchedEvents,
 			}

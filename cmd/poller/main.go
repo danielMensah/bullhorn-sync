@@ -7,9 +7,9 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/danielMensah/bullhorn-sync-poc/internal/broker"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/bullhorn"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/config"
-	"github.com/danielMensah/bullhorn-sync-poc/internal/kafka"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/poller"
 	log "github.com/sirupsen/logrus"
 )
@@ -24,7 +24,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	publisher, err := kafka.NewPublisher(ctx, cfg.KafkaAddress)
+	publisher, err := broker.NewKafkaPublisher(ctx, cfg.KafkaAddress)
 	if err != nil {
 		log.WithError(err).Fatal("creating new kafka publisher")
 	}
@@ -35,7 +35,7 @@ func main() {
 	}
 	p := poller.New(bhClient)
 
-	events := make(chan *kafka.EventWrapper)
+	events := make(chan *broker.EventWrapper)
 	wg := &sync.WaitGroup{}
 
 	for i := 0; i < 20; i++ {

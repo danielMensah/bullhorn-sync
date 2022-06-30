@@ -1,4 +1,4 @@
-package kafka
+package broker
 
 import (
 	"context"
@@ -11,21 +11,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type PublisherClient struct {
+type KafkaPublisherClient struct {
 	Conn *kaf.Conn
 }
 
-type EventWrapper struct {
-	Topic string
-	Data  interface{}
-}
-
-type Publisher interface {
-	Publish(ctx context.Context, events <-chan *EventWrapper, wg *sync.WaitGroup)
-	Close() error
-}
-
-func NewPublisher(ctx context.Context, addr string) (Publisher, error) {
+func NewKafkaPublisher(ctx context.Context, addr string) (Publisher, error) {
 	conn, err := kaf.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial: %w", err)
@@ -38,10 +28,10 @@ func NewPublisher(ctx context.Context, addr string) (Publisher, error) {
 
 	// TODO: implement kafka dialer retry logic
 
-	return &PublisherClient{Conn: conn}, nil
+	return &KafkaPublisherClient{Conn: conn}, nil
 }
 
-func (c *PublisherClient) Publish(ctx context.Context, events <-chan *EventWrapper, wg *sync.WaitGroup) {
+func (c *KafkaPublisherClient) Publish(ctx context.Context, events <-chan *EventWrapper, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
@@ -71,6 +61,6 @@ func (c *PublisherClient) Publish(ctx context.Context, events <-chan *EventWrapp
 	}
 }
 
-func (c *PublisherClient) Close() error {
+func (c *KafkaPublisherClient) Close() error {
 	return c.Conn.Close()
 }
