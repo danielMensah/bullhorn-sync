@@ -11,17 +11,17 @@ import (
 
 func (c *Consumer) ConsumeCandidate(ctx context.Context, entity *bullhorn.Entity) error {
 	switch entity.EventType {
-	case bullhorn.EventType_INSERTED:
+	case bullhorn.EventTypeInserted:
 		err := c.insertCandidate(ctx, entity)
 		if err != nil {
 			return err
 		}
-	case bullhorn.EventType_UPDATED:
+	case bullhorn.EventTypeUpdated:
 		err := c.updateCandidate(ctx, entity)
 		if err != nil {
 			return err
 		}
-	case bullhorn.EventType_DELETED:
+	case bullhorn.EventTypeDeleted:
 		err := c.deleteCandidate(ctx, entity)
 		if err != nil {
 			return err

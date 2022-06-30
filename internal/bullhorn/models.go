@@ -3,9 +3,9 @@ package bullhorn
 type EventType string
 
 const (
-	EventType_INSERTED EventType = "INSERT"
-	EventType_UPDATED  EventType = "UPDATE"
-	EventType_DELETED  EventType = "DELETE"
+	EventTypeInserted EventType = "INSERT"
+	EventTypeUpdated  EventType = "UPDATE"
+	EventTypeDeleted  EventType = "DELETE"
 )
 
 // RequestResponse models subscription request response

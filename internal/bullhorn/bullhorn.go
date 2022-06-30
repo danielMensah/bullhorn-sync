@@ -70,7 +70,7 @@ func (c *Client) GetEvents() ([]Event, error) {
 // FetchEntityChanges fetches the changes for a given entity
 func (c *Client) FetchEntityChanges(event Event) (Entity, error) {
 	switch event.EntityEventType {
-	case EventType_INSERTED:
+	case EventTypeInserted:
 		fields := "*"
 		url := fmt.Sprintf("%s/entity/%s/%d?fields=%s", c.entityUrl, event.EntityName, event.EntityId, fields)
 
@@ -85,7 +85,7 @@ func (c *Client) FetchEntityChanges(event Event) (Entity, error) {
 			Changes:   body,
 			Timestamp: event.EventTimestamp,
 		}, nil
-	case EventType_UPDATED:
+	case EventTypeUpdated:
 
 		fields := strings.Join(event.UpdatedProperties, ",")
 		url := fmt.Sprintf("%s/entity/%s/%d?fields=%s", c.entityUrl, event.EntityName, event.EntityId, fields)
@@ -102,7 +102,7 @@ func (c *Client) FetchEntityChanges(event Event) (Entity, error) {
 			Changes:   body,
 			Timestamp: event.EventTimestamp,
 		}, nil
-	case EventType_DELETED:
+	case EventTypeDeleted:
 		// delete event entity
 	default:
 		log.Errorf("entity event type not supported: %s", event.EntityEventType)

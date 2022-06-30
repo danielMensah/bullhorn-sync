@@ -1,14 +1,14 @@
-PROTO_DIR = internal/proto
+#PROTO_DIR = internal/proto
+#
+#UNAME := $(shell uname -s)
+#OS = macos
+#PACKAGE = $(shell head -1 go.mod | awk '{print $$2}')
 
-UNAME := $(shell uname -s)
-OS = macos
-PACKAGE = $(shell head -1 go.mod | awk '{print $$2}')
+#proto:
+#	protoc -I${PROTO_DIR} --go_opt=module=${PACKAGE} --go_out=. --go-grpc_opt=module=${PACKAGE} --go-grpc_out=. ${PROTO_DIR}/*.proto
 
-proto:
-	protoc -I${PROTO_DIR} --go_opt=module=${PACKAGE} --go_out=. --go-grpc_opt=module=${PACKAGE} --go-grpc_out=. ${PROTO_DIR}/*.proto
-
-clean:
-	rm ${PROTO_DIR}/*.pb.go
+#clean:
+#	rm ${PROTO_DIR}/*.pb.go
 
 install:
 	go get -v ./...
