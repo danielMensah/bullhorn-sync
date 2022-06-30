@@ -5,15 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/danielMensah/bullhorn-sync-poc/internal/auth"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/config"
-	pb "github.com/danielMensah/bullhorn-sync-poc/internal/proto"
 	"github.com/hashicorp/go-retryablehttp"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Client is the Bullhorn client
@@ -24,8 +21,8 @@ type Client struct {
 }
 
 type Bullhorn interface {
-	GetEvents() ([]*pb.Event, error)
-	FetchEntityChanges(event *pb.Event) (*Entity, error)
+	GetEvents() ([]Event, error)
+	FetchEntityChanges(event Event) (Entity, error)
 }
 
 // New returns a new Bullhorn client.
@@ -55,7 +52,7 @@ func New(ctx context.Context, config *config.Config) (Bullhorn, error) {
 }
 
 // GetEvents returns the events from the bullhorn subscription url
-func (c *Client) GetEvents() ([]*pb.Event, error) {
+func (c *Client) GetEvents() ([]Event, error) {
 	body, err := c.request("GET", c.subscriptionUrl, nil)
 	if err != nil {
 		return nil, err
@@ -67,62 +64,49 @@ func (c *Client) GetEvents() ([]*pb.Event, error) {
 		return nil, fmt.Errorf("unmarshalling response: %w", err)
 	}
 
-	events := make([]*pb.Event, 0)
-	for _, event := range response.Events {
-		ts := timestamppb.New(time.UnixMilli(event.EventTimestamp))
-
-		events = append(events, &pb.Event{
-			EntityId:          event.EntityId,
-			EntityName:        event.EntityName,
-			EntityEventType:   event.EntityEventType,
-			UpdatedProperties: event.UpdatedProperties,
-			EventTimestamp:    ts,
-		})
-	}
-
-	return events, nil
+	return response.Events, nil
 }
 
 // FetchEntityChanges fetches the changes for a given entity
-func (c *Client) FetchEntityChanges(event *pb.Event) (*Entity, error) {
+func (c *Client) FetchEntityChanges(event Event) (Entity, error) {
 	switch event.EntityEventType {
-	case pb.EventType_UPDATED:
+	case EventType_INSERTED:
+		fields := "*"
+		url := fmt.Sprintf("%s/entity/%s/%d?fields=%s", c.entityUrl, event.EntityName, event.EntityId, fields)
+
+		body, err := c.request("GET", url, nil)
+		if err != nil {
+			return Entity{}, fmt.Errorf("failed getting entity (%s) with id: %d : %w", event.EntityName, event.EntityId, err)
+		}
+
+		return Entity{
+			Id:        event.EntityId,
+			Name:      event.EntityName,
+			Changes:   body,
+			Timestamp: event.EventTimestamp,
+		}, nil
+	case EventType_UPDATED:
 
 		fields := strings.Join(event.UpdatedProperties, ",")
 		url := fmt.Sprintf("%s/entity/%s/%d?fields=%s", c.entityUrl, event.EntityName, event.EntityId, fields)
 
 		body, err := c.request("GET", url, nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed getting entity (%s) with id: %d : %w", event.EntityName, event.EntityId, err)
+			return Entity{}, fmt.Errorf("failed getting entity (%s) with id: %d : %w", event.EntityName, event.EntityId, err)
 		}
 
-		return &Entity{
+		return Entity{
 			Id:        event.EntityId,
 			Name:      event.EntityName,
 			EventType: string(event.EntityEventType),
 			Changes:   body,
 			Timestamp: event.EventTimestamp,
 		}, nil
-	case pb.EventType_INSERTED:
-		fields := strings.Join(event.UpdatedProperties, ",")
-		url := fmt.Sprintf("%s/entity/%s/%d?fields=%s", c.entityUrl, event.EntityName, event.EntityId, fields)
-
-		body, err := c.request("GET", url, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed getting entity (%s) with id: %d : %w", event.EntityName, event.EntityId, err)
-		}
-
-		return &Entity{
-			Id:        event.EntityId,
-			Name:      event.EntityName,
-			Changes:   body,
-			Timestamp: event.EventTimestamp,
-		}, nil
-	case pb.EventType_DELETED:
+	case EventType_DELETED:
 		// delete event entity
 	default:
 		log.Errorf("entity event type not supported: %s", event.EntityEventType)
 	}
 
-	return nil, nil
+	return Entity{}, nil
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/danielMensah/bullhorn-sync-poc/internal/config"
-	pb "github.com/danielMensah/bullhorn-sync-poc/internal/proto"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -24,15 +23,15 @@ func NewPostgresDB(ctx context.Context, cfg config.Config) (Repository, error) {
 	}, nil
 }
 
-func (p *PostgresClient) Store(ctx context.Context, event *pb.Entity) error {
+func (p *PostgresClient) Save(ctx context.Context, dbEntity DBEntity) error {
 	return nil
 }
 
-func (p *PostgresClient) Update(ctx context.Context, event *pb.Entity) error {
+func (p *PostgresClient) Update(ctx context.Context, dbEntity DBEntity) error {
 	return nil
 }
 
-func (p *PostgresClient) Delete(ctx context.Context, entity *pb.Entity) error {
+func (p *PostgresClient) Delete(ctx context.Context, id int32, entityName string) error {
 	return nil
 }
 

@@ -3,9 +3,9 @@ package consumer
 import (
 	"context"
 
-	pb "github.com/danielMensah/bullhorn-sync-poc/internal/proto"
+	"github.com/danielMensah/bullhorn-sync-poc/internal/bullhorn"
 )
 
-func (c *Consumer) ConsumeCompany(ctx context.Context, entity *pb.Entity) error {
+func (c *Consumer) ConsumeCompany(ctx context.Context, entity *bullhorn.Entity) error {
 	return nil
 }

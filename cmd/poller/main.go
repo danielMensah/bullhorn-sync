@@ -9,11 +9,9 @@ import (
 
 	"github.com/danielMensah/bullhorn-sync-poc/internal/bullhorn"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/config"
+	"github.com/danielMensah/bullhorn-sync-poc/internal/kafka"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/poller"
-	pb "github.com/danielMensah/bullhorn-sync-poc/internal/proto"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -25,11 +23,11 @@ func main() {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	conn, err := grpc.DialContext(ctx, cfg.RPCAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+	publisher, err := kafka.NewPublisher(ctx, cfg.KafkaAddress)
 	if err != nil {
-		log.Fatalf("did not connect: %v\n", err)
+		log.WithError(err).Fatal("creating new kafka publisher")
 	}
-	defer conn.Close()
 
 	bhClient, err := bullhorn.New(ctx, cfg)
 	if err != nil {
@@ -37,15 +35,15 @@ func main() {
 	}
 	p := poller.New(bhClient)
 
-	records := make(chan []*pb.Event)
+	events := make(chan *kafka.EventWrapper)
 	wg := &sync.WaitGroup{}
 
 	for i := 0; i < 20; i++ {
 		wg.Add(1)
-		go sendToPublisher(ctx, conn, records, wg)
+		go publisher.Publish(ctx, events, wg)
 	}
 
-	p.Run(records)
+	p.Run(events)
 	wg.Wait()
 
 	go func() {
@@ -58,20 +56,4 @@ func main() {
 		log.Info("terminate signal received, exiting...")
 		cancel()
 	}()
-
-	log.Info("Producer started")
-}
-
-func sendToPublisher(ctx context.Context, conn *grpc.ClientConn, records <-chan []*pb.Event, wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	c := pb.NewPublisherServiceClient(conn)
-	wrappedEvent := &pb.EventsWrapper{
-		Events: <-records,
-	}
-
-	_, err := c.Publish(ctx, wrappedEvent)
-	if err != nil {
-		log.WithError(err).Fatal("sending wrapped events to publisher")
-	}
 }

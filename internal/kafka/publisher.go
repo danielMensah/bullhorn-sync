@@ -2,23 +2,26 @@ package kafka
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/danielMensah/bullhorn-sync-poc/internal/bullhorn"
-	pb "github.com/danielMensah/bullhorn-sync-poc/internal/proto"
 	kaf "github.com/segmentio/kafka-go"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/protobuf/proto"
 )
 
 type PublisherClient struct {
 	Conn *kaf.Conn
 }
 
+type EventWrapper struct {
+	Topic string
+	Data  interface{}
+}
+
 type Publisher interface {
-	Publish(ctx context.Context, event <-chan *bullhorn.Entity, wg *sync.WaitGroup)
+	Publish(ctx context.Context, events <-chan *EventWrapper, wg *sync.WaitGroup)
 	Close() error
 }
 
@@ -38,34 +41,27 @@ func NewPublisher(ctx context.Context, addr string) (Publisher, error) {
 	return &PublisherClient{Conn: conn}, nil
 }
 
-func (c *PublisherClient) Publish(ctx context.Context, entityEvent <-chan *bullhorn.Entity, wg *sync.WaitGroup) {
+func (c *PublisherClient) Publish(ctx context.Context, events <-chan *EventWrapper, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case entity, ok := <-entityEvent:
+		case event, ok := <-events:
 			if !ok {
 				return
 			}
 
-			p := &pb.Entity{
-				Id:             entity.Id,
-				Name:           entity.Name,
-				Changes:        entity.Changes,
-				EventTimestamp: entity.Timestamp,
-			}
-
-			data, err := proto.Marshal(p)
+			marshalledData, err := json.Marshal(event.Data)
 			if err != nil {
-				log.WithError(err).Error("marshalling proto event")
+				log.WithError(err).Error("marshalling event")
 				return
 			}
 
 			_, err = c.Conn.WriteMessages(kaf.Message{
-				Value: data,
-				Topic: fmt.Sprintf("event_%s", entity.Name),
+				Value: marshalledData,
+				Topic: event.Topic,
 			})
 			if err != nil {
 				log.WithError(err).Error("writing message")

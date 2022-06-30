@@ -36,13 +36,13 @@ func NewCassandraDB(config *config.Config) (Repository, error) {
 	return &CassandraClient{db: sess}, nil
 }
 
-func (c *CassandraClient) Save(ctx context.Context, entityStruct Entity) error {
-	entityTable, ok := mappingTable[entityStruct.Name]
+func (c *CassandraClient) Save(ctx context.Context, dbEntity DBEntity) error {
+	entityTable, ok := mappingTable[dbEntity.Name]
 	if !ok {
-		return fmt.Errorf("entity '%s' not supported", entityStruct.Name)
+		return fmt.Errorf("entity '%s' not supported", dbEntity.Name)
 	}
 
-	q := entityTable.InsertQueryContext(ctx, c.db).BindStruct(entityStruct.Data)
+	q := entityTable.InsertQueryContext(ctx, c.db).BindStruct(dbEntity.Data)
 	if err := q.ExecRelease(); err != nil {
 		return fmt.Errorf("cannot exec save query: %w", err)
 	}
@@ -50,13 +50,13 @@ func (c *CassandraClient) Save(ctx context.Context, entityStruct Entity) error {
 	return nil
 }
 
-func (c *CassandraClient) Update(ctx context.Context, entityStruct Entity) error {
-	entityTable, ok := mappingTable[entityStruct.Name]
+func (c *CassandraClient) Update(ctx context.Context, dbEntity DBEntity) error {
+	entityTable, ok := mappingTable[dbEntity.Name]
 	if !ok {
-		return fmt.Errorf("entity '%s' not supported", entityStruct.Name)
+		return fmt.Errorf("entity '%s' not supported", dbEntity.Name)
 	}
 
-	q := entityTable.UpdateQueryContext(ctx, c.db).BindStruct(entityStruct)
+	q := entityTable.UpdateQueryContext(ctx, c.db).BindStruct(dbEntity)
 	if err := q.ExecRelease(); err != nil {
 		return fmt.Errorf("cannot exec update query: %w", err)
 	}

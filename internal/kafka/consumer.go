@@ -2,11 +2,10 @@ package kafka
 
 import (
 	"context"
+	"encoding/json"
 	"net"
 	"time"
 
-	pb "github.com/danielMensah/bullhorn-sync-poc/internal/proto"
-	"github.com/golang/protobuf/proto"
 	kaf "github.com/segmentio/kafka-go"
 	log "github.com/sirupsen/logrus"
 )
@@ -16,7 +15,7 @@ type ConsumerClient struct {
 }
 
 type Consumer interface {
-	Consume(ctx context.Context, entity chan<- *pb.Entity)
+	Consume(ctx context.Context, event chan<- *EventWrapper)
 	Close() error
 }
 
@@ -35,11 +34,11 @@ func NewConsumer(topic string, addr string) Consumer {
 	return &ConsumerClient{reader: reader}
 }
 
-func (s *ConsumerClient) Consume(ctx context.Context, entity chan<- *pb.Entity) {
+func (s *ConsumerClient) Consume(ctx context.Context, event chan<- *EventWrapper) {
 	for {
 		select {
 		case <-ctx.Done():
-			close(entity)
+			close(event)
 			return
 		default:
 			msg, err := s.reader.ReadMessage(ctx)
@@ -47,13 +46,13 @@ func (s *ConsumerClient) Consume(ctx context.Context, entity chan<- *pb.Entity) 
 				log.WithError(err).Error("failed to read message")
 			}
 
-			e := &pb.Entity{}
-			err = proto.Unmarshal(msg.Value, e)
+			e := &EventWrapper{}
+			err = json.Unmarshal(msg.Value, e)
 			if err != nil {
 				log.WithError(err).Error("failed to unmarshal message")
 			}
 
-			entity <- e
+			event <- e
 		}
 	}
 }

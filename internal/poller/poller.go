@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/danielMensah/bullhorn-sync-poc/internal/bullhorn"
-	"github.com/danielMensah/bullhorn-sync-poc/internal/proto"
+	"github.com/danielMensah/bullhorn-sync-poc/internal/kafka"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -20,7 +20,7 @@ func New(bhClient bullhorn.Bullhorn) *Poller {
 	}
 }
 
-func (p *Poller) Run(events chan<- []*proto.Event) {
+func (p *Poller) Run(events chan<- *kafka.EventWrapper) {
 	for {
 		select {
 		case <-p.Done:
@@ -32,7 +32,11 @@ func (p *Poller) Run(events chan<- []*proto.Event) {
 				log.WithError(err).Error("getting entities")
 			}
 
-			events <- fetchedEvents
+			events <- &kafka.EventWrapper{
+				Topic: "poll_event",
+				Data:  fetchedEvents,
+			}
+
 			time.Sleep(10 * time.Second)
 		}
 	}

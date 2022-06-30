@@ -4,8 +4,9 @@ import (
 	"context"
 	"sync"
 
+	"github.com/danielMensah/bullhorn-sync-poc/internal/bullhorn"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/consumer"
-	pb "github.com/danielMensah/bullhorn-sync-poc/internal/proto"
+	"github.com/danielMensah/bullhorn-sync-poc/internal/kafka"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -55,23 +56,34 @@ func (wp *Pool) worker(ctx context.Context, wg *sync.WaitGroup, jobs <-chan Job,
 	}
 }
 
-func (wp *Pool) AddJob(entities <-chan *pb.Entity, consumer *consumer.Consumer) {
-	for entity := range entities {
-		var execFn ExecutionFn
+func (wp *Pool) AddJob(ctx context.Context, events <-chan *kafka.EventWrapper, consumer *consumer.Consumer) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case event, ok := <-events:
+			if !ok {
+				return
+			}
 
-		switch entity.Name {
-		case "Candidate":
-			execFn = consumer.ConsumeCandidate
-		case "Company":
-			execFn = consumer.ConsumeCompany
-		default:
-			log.Errorf("unsupported entity type: %v", entity.EventType)
-			continue
-		}
+			bullhornEntity := event.Data.(*bullhorn.Entity)
 
-		wp.jobs <- Job{
-			ExecFn: execFn,
-			Entity: entity,
+			var execFn ExecutionFn
+
+			switch bullhornEntity.Name {
+			case "Candidate":
+				execFn = consumer.ConsumeCandidate
+			case "Company":
+				execFn = consumer.ConsumeCompany
+			default:
+				log.Errorf("unsupported entity type: %v", event.Topic)
+				continue
+			}
+
+			wp.jobs <- Job{
+				ExecFn: execFn,
+				Entity: bullhornEntity,
+			}
 		}
 	}
 }

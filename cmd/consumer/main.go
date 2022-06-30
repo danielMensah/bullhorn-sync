@@ -10,7 +10,6 @@ import (
 	"github.com/danielMensah/bullhorn-sync-poc/internal/config"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/consumer"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/kafka"
-	pb "github.com/danielMensah/bullhorn-sync-poc/internal/proto"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/repository"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/wpool"
 	log "github.com/sirupsen/logrus"
@@ -37,12 +36,12 @@ func main() {
 	pool := wpool.New(20)
 	pool.Run(ctx)
 
-	entities := make(chan *pb.Entity)
+	entities := make(chan *kafka.EventWrapper)
 	wg := &sync.WaitGroup{}
 
 	for i := 0; i < 20; i++ {
 		wg.Add(1)
-		go pool.AddJob(entities, entityConsumer)
+		go pool.AddJob(ctx, entities, entityConsumer)
 	}
 
 	kafkaConsumer.Consume(ctx, entities)

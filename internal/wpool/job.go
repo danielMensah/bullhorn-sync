@@ -3,14 +3,14 @@ package wpool
 import (
 	"context"
 
-	pb "github.com/danielMensah/bullhorn-sync-poc/internal/proto"
+	"github.com/danielMensah/bullhorn-sync-poc/internal/bullhorn"
 )
 
 type JobID string
 type jobType string
 type jobMetadata map[string]interface{}
 
-type ExecutionFn func(context.Context, *pb.Entity) error
+type ExecutionFn func(context.Context, *bullhorn.Entity) error
 
 type JobDescriptor struct {
 	ID       JobID
@@ -26,7 +26,7 @@ type Result struct {
 type Job struct {
 	Descriptor JobDescriptor
 	ExecFn     ExecutionFn
-	Entity     *pb.Entity
+	Entity     *bullhorn.Entity
 }
 
 func (j Job) execute(ctx context.Context) Result {
