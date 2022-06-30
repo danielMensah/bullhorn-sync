@@ -7,11 +7,12 @@
 package proto
 
 import (
+	reflect "reflect"
+	sync "sync"
+
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
-	reflect "reflect"
-	sync "sync"
 )
 
 const (
@@ -107,11 +108,11 @@ func file_publisher_proto_rawDescGZIP() []byte {
 var file_publisher_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_publisher_proto_goTypes = []interface{}{
 	(*EventsWrapper)(nil), // 0: bullhorn.event.EventsWrapper
-	(*Event)(nil),         // 1: bullhorn.event.Event
+	(*Event)(nil),         // 1: bullhorn.event.Entity
 	(*emptypb.Empty)(nil), // 2: google.protobuf.Empty
 }
 var file_publisher_proto_depIdxs = []int32{
-	1, // 0: bullhorn.event.EventsWrapper.events:type_name -> bullhorn.event.Event
+	1, // 0: bullhorn.event.EventsWrapper.events:type_name -> bullhorn.event.Entity
 	0, // 1: bullhorn.event.PublisherService.Publish:input_type -> bullhorn.event.EventsWrapper
 	2, // 2: bullhorn.event.PublisherService.Publish:output_type -> google.protobuf.Empty
 	2, // [2:3] is the sub-list for method output_type

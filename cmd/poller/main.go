@@ -9,7 +9,6 @@ import (
 
 	"github.com/danielMensah/bullhorn-sync-poc/internal/bullhorn"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/config"
-	"github.com/danielMensah/bullhorn-sync-poc/internal/kafka"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/poller"
 	pb "github.com/danielMensah/bullhorn-sync-poc/internal/proto"
 	log "github.com/sirupsen/logrus"
@@ -32,11 +31,6 @@ func main() {
 	}
 	defer conn.Close()
 
-	messenger, err := kafka.NewPublisher(ctx, cfg.KafkaAddress)
-	if err != nil {
-		log.WithError(err).Fatal("cannot create new publisher")
-	}
-
 	bhClient, err := bullhorn.New(ctx, cfg)
 	if err != nil {
 		log.WithError(err).Fatal("new bullhorn client")
@@ -58,13 +52,10 @@ func main() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		<-c
+
 		close(p.Done)
+
 		log.Info("terminate signal received, exiting...")
-
-		if err := messenger.Close(); err != nil {
-			log.Error("shutting down:", err)
-		}
-
 		cancel()
 	}()
 

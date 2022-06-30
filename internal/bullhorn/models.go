@@ -25,6 +25,7 @@ type Event struct {
 type Entity struct {
 	Id        int32
 	Name      string
+	EventType string
 	Changes   []byte
 	Timestamp *timestamppb.Timestamp
 }

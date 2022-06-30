@@ -21,7 +21,7 @@ func (s *Server) Publish(ctx context.Context, eventWrapper *pb.EventsWrapper) (*
 		return nil, fmt.Errorf("cannot load config: %w", err)
 	}
 
-	messenger, err := kafka.NewPublisher(ctx, cfg.KafkaAddress)
+	publisher, err := kafka.NewPublisher(ctx, cfg.KafkaAddress)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create new publisher: %w", err)
 	}
@@ -36,7 +36,7 @@ func (s *Server) Publish(ctx context.Context, eventWrapper *pb.EventsWrapper) (*
 
 	for i := 0; i < 20; i++ {
 		wg.Add(1)
-		go messenger.Publish(ctx, record, wg)
+		go publisher.Publish(ctx, record, wg)
 	}
 
 	for _, event := range eventWrapper.Events {

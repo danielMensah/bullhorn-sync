@@ -99,6 +99,7 @@ func (c *Client) FetchEntityChanges(event *pb.Event) (*Entity, error) {
 		return &Entity{
 			Id:        event.EntityId,
 			Name:      event.EntityName,
+			EventType: string(event.EntityEventType),
 			Changes:   body,
 			Timestamp: event.EventTimestamp,
 		}, nil

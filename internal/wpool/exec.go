@@ -4,9 +4,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/danielMensah/bullhorn-sync-poc/internal/bullhorn"
+	"github.com/danielMensah/bullhorn-sync-poc/internal/consumer"
 	pb "github.com/danielMensah/bullhorn-sync-poc/internal/proto"
-	"github.com/danielMensah/bullhorn-sync-poc/internal/storage"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -17,7 +16,7 @@ type Pool struct {
 	Done         chan struct{}
 }
 
-func New(bh bullhorn.Bullhorn, workerCount int) *Pool {
+func New(workerCount int) *Pool {
 	return &Pool{
 		workersCount: workerCount,
 		jobs:         make(chan Job, workerCount),
@@ -56,27 +55,23 @@ func (wp *Pool) worker(ctx context.Context, wg *sync.WaitGroup, jobs <-chan Job,
 	}
 }
 
-func (wp *Pool) Results() <-chan Result {
-	return wp.results
-}
-
-func (wp *Pool) AddJob(events <-chan *pb.Event, storage storage.Storage) {
-	for event := range events {
+func (wp *Pool) AddJob(entities <-chan *pb.Entity, consumer *consumer.Consumer) {
+	for entity := range entities {
 		var execFn ExecutionFn
 
-		switch event.EntityEventType {
-		case pb.EventType_INSERTED:
-			execFn = storage.Store
-		case pb.EventType_UPDATED:
-			execFn = storage.Update
+		switch entity.Name {
+		case "Candidate":
+			execFn = consumer.ConsumeCandidate
+		case "Company":
+			execFn = consumer.ConsumeCompany
 		default:
-			log.Errorf("unsupported event type: %v", event.EntityEventType)
+			log.Errorf("unsupported entity type: %v", entity.EventType)
 			continue
 		}
 
 		wp.jobs <- Job{
 			ExecFn: execFn,
-			Event:  event,
+			Entity: entity,
 		}
 	}
 }

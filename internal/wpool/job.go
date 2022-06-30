@@ -10,7 +10,7 @@ type JobID string
 type jobType string
 type jobMetadata map[string]interface{}
 
-type ExecutionFn func(ctx context.Context, event *pb.Event) error
+type ExecutionFn func(context.Context, *pb.Entity) error
 
 type JobDescriptor struct {
 	ID       JobID
@@ -26,11 +26,11 @@ type Result struct {
 type Job struct {
 	Descriptor JobDescriptor
 	ExecFn     ExecutionFn
-	Event      *pb.Event
+	Entity     *pb.Entity
 }
 
 func (j Job) execute(ctx context.Context) Result {
-	err := j.ExecFn(ctx, j.Event)
+	err := j.ExecFn(ctx, j.Entity)
 	if err != nil {
 		return Result{
 			Err:        err,
