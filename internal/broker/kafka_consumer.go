@@ -6,21 +6,27 @@ import (
 	"net"
 	"time"
 
-	kaf "github.com/segmentio/kafka-go"
+	"github.com/segmentio/kafka-go"
 	log "github.com/sirupsen/logrus"
 )
 
 type KafkaConsumerClient struct {
-	reader *kaf.Reader
+	reader KafkaReaderService
+}
+
+// KafkaReaderService is for mainly testing purposes
+type KafkaReaderService interface {
+	ReadMessage(ctx context.Context) (kafka.Message, error)
+	Close() error
 }
 
 func NewKafkaConsumer(topic string, addr string) Consumer {
-	reader := kaf.NewReader(kaf.ReaderConfig{
+	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers: []string{addr},
 		Topic:   topic,
-		Dialer: &kaf.Dialer{
+		Dialer: &kafka.Dialer{
 			DialFunc: func(ctx context.Context, network string, address string) (net.Conn, error) {
-				return kaf.DialContext(ctx, "tcp", addr)
+				return kafka.DialContext(ctx, "tcp", addr)
 			},
 			Timeout: 10 * time.Second,
 		},
@@ -39,12 +45,14 @@ func (s *KafkaConsumerClient) Consume(ctx context.Context, event chan<- *EventWr
 			msg, err := s.reader.ReadMessage(ctx)
 			if err != nil {
 				log.WithError(err).Error("failed to read message")
+				return
 			}
 
 			e := &EventWrapper{}
 			err = json.Unmarshal(msg.Value, e)
 			if err != nil {
 				log.WithError(err).Error("failed to unmarshal message")
+				return
 			}
 
 			event <- e

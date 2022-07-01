@@ -7,16 +7,22 @@ import (
 	"sync"
 	"time"
 
-	kaf "github.com/segmentio/kafka-go"
+	"github.com/segmentio/kafka-go"
 	log "github.com/sirupsen/logrus"
 )
 
 type KafkaPublisherClient struct {
-	Conn *kaf.Conn
+	Conn KafkaConnService
+}
+
+// KafkaConnService is for mainly testing purposes
+type KafkaConnService interface {
+	WriteMessages(msgs ...kafka.Message) (int, error)
+	Close() error
 }
 
 func NewKafkaPublisher(ctx context.Context, addr string) (Publisher, error) {
-	conn, err := kaf.DialContext(ctx, "tcp", addr)
+	conn, err := kafka.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial: %w", err)
 	}
@@ -49,7 +55,7 @@ func (c *KafkaPublisherClient) Publish(ctx context.Context, events <-chan *Event
 				return
 			}
 
-			_, err = c.Conn.WriteMessages(kaf.Message{
+			_, err = c.Conn.WriteMessages(kafka.Message{
 				Value: marshalledData,
 				Topic: event.Topic,
 			})
@@ -57,6 +63,8 @@ func (c *KafkaPublisherClient) Publish(ctx context.Context, events <-chan *Event
 				log.WithError(err).Error("writing message")
 				return
 			}
+
+			log.Info("event published successfully")
 		}
 	}
 }

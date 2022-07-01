@@ -6,8 +6,8 @@ import (
 )
 
 type EventWrapper struct {
-	Topic string
-	Data  interface{}
+	Topic string      `json:"topic"`
+	Data  interface{} `json:"data"`
 }
 
 type Consumer interface {
