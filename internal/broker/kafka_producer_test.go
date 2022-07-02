@@ -6,24 +6,38 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/segmentio/kafka-go"
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-// KafkaPublisherMock is a mock of the queue methods for use in the services using the broker client
-type KafkaPublisherMock struct {
+// KafkaProducerMock is a mock of the queue methods for use in the services using the broker client
+type KafkaProducerMock struct {
 	mock.Mock
 }
 
-func (m *KafkaPublisherMock) WriteMessages(msgs ...kafka.Message) (int, error) {
-	args := m.Called(msgs)
-	return 0, args.Error(1)
+func (m *KafkaProducerMock) ProduceChannel() chan *kafka.Message {
+	args := m.Called()
+	msg := args.Get(0).(chan *kafka.Message)
+	if msg != nil {
+		msg = make(chan *kafka.Message)
+	}
+
+	return msg
 }
 
-func (m *KafkaPublisherMock) Close() error {
+func (m *KafkaProducerMock) Events() chan kafka.Event {
 	args := m.Called()
-	return args.Error(0)
+	event := args.Get(0).(chan kafka.Event)
+	if event != nil {
+		event = make(chan kafka.Event)
+	}
+
+	return event
+}
+
+func (m *KafkaProducerMock) Close() {
+	_ = m.Called()
 }
 
 func TestKafkaPublisherClient_Publish(t *testing.T) {
@@ -31,12 +45,12 @@ func TestKafkaPublisherClient_Publish(t *testing.T) {
 		name        string
 		workers     int
 		data        []*EventWrapper
-		conn        *KafkaPublisherMock
-		expectMocks func(t *testing.T, conn *KafkaPublisherMock)
+		conn        *KafkaProducerMock
+		expectMocks func(t *testing.T, conn *KafkaProducerMock)
 	}{
 		{
 			name:    "can publish single event",
-			conn:    &KafkaPublisherMock{},
+			conn:    &KafkaProducerMock{},
 			workers: 1,
 			data: []*EventWrapper{
 				{
@@ -44,7 +58,7 @@ func TestKafkaPublisherClient_Publish(t *testing.T) {
 					Data:  "some data 1",
 				},
 			},
-			expectMocks: func(t *testing.T, conn *KafkaPublisherMock) {
+			expectMocks: func(t *testing.T, conn *KafkaProducerMock) {
 				d := &EventWrapper{Data: "some data 1"}
 
 				v, err := json.Marshal(d.Data)
@@ -59,7 +73,7 @@ func TestKafkaPublisherClient_Publish(t *testing.T) {
 		},
 		{
 			name:    "can publish single event with multiple goroutines",
-			conn:    &KafkaPublisherMock{},
+			conn:    &KafkaProducerMock{},
 			workers: 10,
 			data: []*EventWrapper{
 				{
@@ -67,7 +81,7 @@ func TestKafkaPublisherClient_Publish(t *testing.T) {
 					Data:  "some data 1",
 				},
 			},
-			expectMocks: func(t *testing.T, conn *KafkaPublisherMock) {
+			expectMocks: func(t *testing.T, conn *KafkaProducerMock) {
 				d := &EventWrapper{Data: "some data 1"}
 
 				v, err := json.Marshal(d.Data)
@@ -82,7 +96,7 @@ func TestKafkaPublisherClient_Publish(t *testing.T) {
 		},
 		{
 			name:    "can publish multiple events",
-			conn:    &KafkaPublisherMock{},
+			conn:    &KafkaProducerMock{},
 			workers: 1,
 			data: []*EventWrapper{
 				{
@@ -98,7 +112,7 @@ func TestKafkaPublisherClient_Publish(t *testing.T) {
 					Data:  "some data 3",
 				},
 			},
-			expectMocks: func(t *testing.T, conn *KafkaPublisherMock) {
+			expectMocks: func(t *testing.T, conn *KafkaProducerMock) {
 				d1 := &EventWrapper{Data: "some data 1"}
 				d2 := &EventWrapper{Data: "some data 2"}
 				d3 := &EventWrapper{Data: "some data 3"}
@@ -134,7 +148,7 @@ func TestKafkaPublisherClient_Publish(t *testing.T) {
 		},
 		{
 			name:    "can publish multiple events with multiple goroutines",
-			conn:    &KafkaPublisherMock{},
+			conn:    &KafkaProducerMock{},
 			workers: 10,
 			data: []*EventWrapper{
 				{
@@ -150,7 +164,7 @@ func TestKafkaPublisherClient_Publish(t *testing.T) {
 					Data:  "some data 3",
 				},
 			},
-			expectMocks: func(t *testing.T, conn *KafkaPublisherMock) {
+			expectMocks: func(t *testing.T, conn *KafkaProducerMock) {
 				d1 := &EventWrapper{Data: "some data 1"}
 				d2 := &EventWrapper{Data: "some data 2"}
 				d3 := &EventWrapper{Data: "some data 3"}
@@ -191,8 +205,8 @@ func TestKafkaPublisherClient_Publish(t *testing.T) {
 				tt.expectMocks(t, tt.conn)
 			}
 
-			c := &KafkaPublisherClient{
-				Conn: tt.conn,
+			c := &KafkaProducerClient{
+				svc: tt.conn,
 			}
 
 			events := make(chan *EventWrapper)
@@ -200,7 +214,7 @@ func TestKafkaPublisherClient_Publish(t *testing.T) {
 
 			for i := 0; i < tt.workers; i++ {
 				wg.Add(1)
-				go c.Publish(context.Background(), events, wg)
+				go c.Produce(context.Background(), events, wg)
 			}
 
 			for _, d := range tt.data {
