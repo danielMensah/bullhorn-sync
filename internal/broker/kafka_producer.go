@@ -18,6 +18,8 @@ type KafkaProducerClient struct {
 type KafkaProducerService interface {
 	ProduceChannel() chan *kafka.Message
 	Events() chan kafka.Event
+	Flush(timeoutMs int) int
+	Len() int
 	Close()
 }
 
@@ -27,6 +29,7 @@ func NewKafkaProducer(addr string) (Producer, error) {
 		return nil, err
 	}
 
+	p.Events()
 	return &KafkaProducerClient{svc: p}, nil
 }
 
@@ -36,6 +39,11 @@ func (p *KafkaProducerClient) Produce(ctx context.Context, topic string, events 
 	for {
 		select {
 		case <-ctx.Done():
+			for p.svc.Flush(100) > 0 {
+				log.Warnf("%d messages still pending", p.svc.Len())
+			}
+
+			p.svc.Close()
 			return
 		case event, ok := <-events:
 			if !ok {
@@ -77,8 +85,4 @@ func (p *KafkaProducerClient) MonitorEvents(wg *sync.WaitGroup) {
 			fmt.Printf("Ignored event: %s\n", ev)
 		}
 	}
-}
-
-func (p *KafkaProducerClient) Close() {
-	p.svc.Close()
 }

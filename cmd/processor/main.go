@@ -24,9 +24,12 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	consumer := broker.NewKafkaConsumer("poller_events", cfg.KafkaAddress)
+	consumer, err := broker.NewKafkaConsumer(cfg.KafkaAddress, "groupID")
+	if err != nil {
+		log.WithError(err).Fatal("creating new consumer")
+	}
 
-	publisher, err := broker.NewKafkaPublisher(ctx, cfg.KafkaAddress)
+	publisher, err := broker.NewKafkaProducer(cfg.KafkaAddress)
 	if err != nil {
 		log.WithError(err).Fatal("creating new publisher")
 	}
@@ -44,10 +47,10 @@ func main() {
 	for i := 0; i < 20; i++ {
 		wg.Add(2)
 		go processEntity(ctx, bhClient, pollerEvents, publisherEvents, wg)
-		go publisher.Publish(ctx, publisherEvents, wg)
+		go publisher.Produce(ctx, publisherEvents, wg)
 	}
 
-	consumer.Consume(ctx, pollerEvents)
+	consumer.Consume(ctx, "poller_events", pollerEvents)
 	wg.Wait()
 
 	go func() {
@@ -78,7 +81,7 @@ func processEntity(
 				return
 			}
 
-			bullhornEvent := events.Data.([]bullhorn.Event)
+			bullhornEvent := events.Event.([]bullhorn.Event)
 
 			for _, event := range bullhornEvent {
 				entity, err := bhClient.FetchEntityChanges(event)
@@ -88,7 +91,7 @@ func processEntity(
 
 				publisherEvents <- &broker.EventWrapper{
 					Topic: strings.ToLower(entity.Name),
-					Data:  entity.Changes,
+					Event: entity.Changes,
 				}
 			}
 		}

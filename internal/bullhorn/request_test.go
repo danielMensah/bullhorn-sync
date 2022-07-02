@@ -5,15 +5,14 @@ import (
 	"io"
 	"testing"
 
+	"github.com/danielMensah/bullhorn-sync-poc/internal/config"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/oauth2"
 )
 
 func TestClient_request(t *testing.T) {
 	tests := []struct {
 		name             string
-		config           Config
-		oauthConfig      *oauth2.Config
+		config           *config.Config
 		url              string
 		body             io.Reader
 		expectedResponse string
@@ -21,22 +20,11 @@ func TestClient_request(t *testing.T) {
 	}{
 		{
 			name: "ok response",
-			config: Config{
-				Username:        "user",
-				Password:        "pass",
-				SubscriptionUrl: "sub",
-				EntityUrl:       "ent",
-			},
-			oauthConfig: &oauth2.Config{
-				ClientID:     "clientId",
-				ClientSecret: "secret",
-				Endpoint: oauth2.Endpoint{
-					AuthURL:   "auth",
-					TokenURL:  tokenServer.URL,
-					AuthStyle: 0,
-				},
-				RedirectURL: "redirect",
-				Scopes:      nil,
+			config: &config.Config{
+				BullhornUsername:        "user",
+				BullhornPassword:        "pass",
+				BullhornSubscriptionUrl: "sub",
+				BullhornEntityUrl:       "ent",
 			},
 			url:              validSubServer.URL,
 			body:             nil,
@@ -45,22 +33,11 @@ func TestClient_request(t *testing.T) {
 		},
 		{
 			name: "non ok response",
-			config: Config{
-				Username:        "user",
-				Password:        "pass",
-				SubscriptionUrl: "sub",
-				EntityUrl:       "ent",
-			},
-			oauthConfig: &oauth2.Config{
-				ClientID:     "clientId",
-				ClientSecret: "secret",
-				Endpoint: oauth2.Endpoint{
-					AuthURL:   "auth",
-					TokenURL:  tokenServer.URL,
-					AuthStyle: 0,
-				},
-				RedirectURL: "redirect",
-				Scopes:      nil,
+			config: &config.Config{
+				BullhornUsername:        "user",
+				BullhornPassword:        "pass",
+				BullhornSubscriptionUrl: "sub",
+				BullhornEntityUrl:       "ent",
 			},
 			url:              invalidSubServer.URL,
 			body:             nil,
@@ -69,22 +46,11 @@ func TestClient_request(t *testing.T) {
 		},
 		{
 			name: "request error",
-			config: Config{
-				Username:        "user",
-				Password:        "pass",
-				SubscriptionUrl: "sub",
-				EntityUrl:       "ent",
-			},
-			oauthConfig: &oauth2.Config{
-				ClientID:     "clientId",
-				ClientSecret: "secret",
-				Endpoint: oauth2.Endpoint{
-					AuthURL:   "auth",
-					TokenURL:  tokenServer.URL,
-					AuthStyle: 0,
-				},
-				RedirectURL: "redirect",
-				Scopes:      nil,
+			config: &config.Config{
+				BullhornUsername:        "user",
+				BullhornPassword:        "pass",
+				BullhornSubscriptionUrl: "sub",
+				BullhornEntityUrl:       "ent",
 			},
 			url:              "",
 			body:             nil,
@@ -94,7 +60,7 @@ func TestClient_request(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := New(context.TODO(), tt.config, tt.oauthConfig)
+			c, err := New(context.TODO(), tt.config)
 			assert.NoError(t, err)
 
 			response, err := c.request("GET", tt.url, tt.body)

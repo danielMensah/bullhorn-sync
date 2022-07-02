@@ -9,7 +9,6 @@ import (
 	"github.com/danielMensah/bullhorn-sync-poc/internal/auth"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/config"
 	"github.com/hashicorp/go-retryablehttp"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 )
 
@@ -23,6 +22,7 @@ type Client struct {
 type Bullhorn interface {
 	GetEvents() ([]Event, error)
 	FetchEntityChanges(event Event) (Entity, error)
+	request(method, url string, body interface{}) ([]byte, error)
 }
 
 // New returns a new Bullhorn client.
@@ -86,7 +86,6 @@ func (c *Client) FetchEntityChanges(event Event) (Entity, error) {
 			Timestamp: event.EventTimestamp,
 		}, nil
 	case EventTypeUpdated:
-
 		fields := strings.Join(event.UpdatedProperties, ",")
 		url := fmt.Sprintf("%s/entity/%s/%d?fields=%s", c.entityUrl, event.EntityName, event.EntityId, fields)
 
@@ -98,15 +97,18 @@ func (c *Client) FetchEntityChanges(event Event) (Entity, error) {
 		return Entity{
 			Id:        event.EntityId,
 			Name:      event.EntityName,
-			EventType: string(event.EntityEventType),
+			EventType: event.EntityEventType,
 			Changes:   body,
 			Timestamp: event.EventTimestamp,
 		}, nil
 	case EventTypeDeleted:
-		// delete event entity
-	default:
-		log.Errorf("entity event type not supported: %s", event.EntityEventType)
+		return Entity{
+			Id:        event.EntityId,
+			Name:      event.EntityName,
+			EventType: event.EntityEventType,
+			Timestamp: event.EventTimestamp,
+		}, nil
 	}
 
-	return Entity{}, nil
+	return Entity{}, fmt.Errorf("entity event type not supported: %s", event.EntityEventType)
 }

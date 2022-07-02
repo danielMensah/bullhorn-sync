@@ -30,7 +30,11 @@ func main() {
 		log.WithError(err).Fatal("creating new repository")
 	}
 
-	brokerConsumer := broker.NewKafkaConsumer("candidate", cfg.KafkaAddress)
+	brokerConsumer, err := broker.NewKafkaConsumer(cfg.KafkaAddress, "groupID")
+	if err != nil {
+		log.WithError(err).Fatal("creating new consumer")
+	}
+
 	entityConsumer := consumer.New(repo)
 
 	pool := wpool.New(20)
@@ -44,7 +48,8 @@ func main() {
 		go pool.AddJob(ctx, entities, entityConsumer, wg)
 	}
 
-	brokerConsumer.Consume(ctx, entities)
+	go brokerConsumer.Consume(ctx, "candidate", entities)
+	go brokerConsumer.Consume(ctx, "company", entities)
 	wg.Wait()
 
 	go func() {
@@ -52,11 +57,7 @@ func main() {
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		<-c
 
-		if err = brokerConsumer.Close(); err != nil {
-			log.WithError(err).Fatal("closing kafka consumer")
-		}
-
-		log.Info("terminate signal received, exiting...")
 		cancel()
+		log.Info("terminate signal received, exiting...")
 	}()
 }

@@ -3,63 +3,64 @@ package broker
 import (
 	"context"
 	"encoding/json"
-	"net"
 	"time"
 
-	"github.com/segmentio/kafka-go"
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 	log "github.com/sirupsen/logrus"
 )
 
 type KafkaConsumerClient struct {
-	reader KafkaReaderService
+	svc KafkaConsumerService
 }
 
-// KafkaReaderService is for mainly testing purposes
-type KafkaReaderService interface {
-	ReadMessage(ctx context.Context) (kafka.Message, error)
+// KafkaConsumerService is for mainly testing purposes
+type KafkaConsumerService interface {
+	ReadMessage(timeout time.Duration) (*kafka.Message, error)
+	SubscribeTopics(topics []string, rebalanceCb kafka.RebalanceCb) (err error)
 	Close() error
 }
 
-func NewKafkaConsumer(topic string, addr string) Consumer {
-	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{addr},
-		Topic:   topic,
-		Dialer: &kafka.Dialer{
-			DialFunc: func(ctx context.Context, network string, address string) (net.Conn, error) {
-				return kafka.DialContext(ctx, "tcp", addr)
-			},
-			Timeout: 10 * time.Second,
-		},
+func NewKafkaConsumer(addr string, groupID string) (Consumer, error) {
+	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
+		"bootstrap.servers": addr,
+		"group.id":          groupID,
+		"auto.offset.reset": "earliest",
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return &KafkaConsumerClient{reader: reader}
+	return &KafkaConsumerClient{svc: consumer}, nil
 }
 
-func (s *KafkaConsumerClient) Consume(ctx context.Context, event chan<- *EventWrapper) {
+func (c *KafkaConsumerClient) Consume(ctx context.Context, topic string, event chan<- *EventWrapper) {
+	err := c.svc.SubscribeTopics([]string{topic}, nil)
+	if err != nil {
+		return
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
+			c.svc.Close()
 			close(event)
 			return
 		default:
-			msg, err := s.reader.ReadMessage(ctx)
+			msg, err := c.svc.ReadMessage(-1)
 			if err != nil {
-				log.WithError(err).Error("failed to read message")
+				log.WithError(err).Errorf("Consumer error: (%v)\n", msg)
 				return
 			}
 
 			e := &EventWrapper{}
 			err = json.Unmarshal(msg.Value, e)
 			if err != nil {
-				log.WithError(err).Error("failed to unmarshal message")
+				log.WithError(err).Errorf("failed to unmarshal message: (%v)\n", string(msg.Value))
 				return
 			}
 
+			e.Topic = *msg.TopicPartition.Topic
 			event <- e
 		}
 	}
-}
-
-func (s *KafkaConsumerClient) Close() error {
-	return s.reader.Close()
 }

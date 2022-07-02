@@ -68,7 +68,7 @@ func (wp *Pool) AddJob(ctx context.Context, events <-chan *broker.EventWrapper, 
 				return
 			}
 
-			bullhornEntity := event.Data.(*bullhorn.Entity)
+			bullhornEntity := event.Event.(*bullhorn.Entity)
 
 			var execFn ExecutionFn
 

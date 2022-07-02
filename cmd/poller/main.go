@@ -24,9 +24,9 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	publisher, err := broker.NewKafkaPublisher(ctx, cfg.KafkaAddress)
+	producer, err := broker.NewKafkaProducer(cfg.KafkaAddress)
 	if err != nil {
-		log.WithError(err).Fatal("creating new kafka publisher")
+		log.WithError(err).Fatal("creating new kafka producer")
 	}
 
 	bhClient, err := bullhorn.New(ctx, cfg)
@@ -35,15 +35,16 @@ func main() {
 	}
 	p := poller.New(bhClient)
 
-	events := make(chan *broker.EventWrapper)
+	events := make(chan interface{})
 	wg := &sync.WaitGroup{}
 
 	for i := 0; i < 20; i++ {
-		wg.Add(1)
-		go publisher.Publish(ctx, events, wg)
+		wg.Add(2)
+		go producer.MonitorEvents(wg)
+		go producer.Produce(ctx, "bullhorn_events", events, wg)
 	}
 
-	p.Run(events)
+	p.Run(ctx, events)
 	wg.Wait()
 
 	go func() {
@@ -51,9 +52,7 @@ func main() {
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		<-c
 
-		close(p.Done)
-
-		log.Info("terminate signal received, exiting...")
 		cancel()
+		log.Info("terminate signal received, exiting...")
 	}()
 }

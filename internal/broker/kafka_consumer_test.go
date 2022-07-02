@@ -2,29 +2,36 @@ package broker
 
 import (
 	"context"
+	"sync"
 	"testing"
+	"time"
 
-	"github.com/segmentio/kafka-go"
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-// KafkaPublisherMock is a mock of the queue methods for use in the services using the broker client
-type KafkaReaderMock struct {
+// KafkaConsumerMock is a mock of the queue methods for use in the services using the broker client
+type KafkaConsumerMock struct {
 	mock.Mock
 }
 
-func (m *KafkaReaderMock) ReadMessage(ctx context.Context) (kafka.Message, error) {
-	args := m.Called(ctx)
-	message, ok := args.Get(0).(kafka.Message)
+func (m *KafkaConsumerMock) ReadMessage(timeout time.Duration) (*kafka.Message, error) {
+	args := m.Called(timeout)
+	message, ok := args.Get(0).(*kafka.Message)
 	if !ok {
-		message = kafka.Message{}
+		message = &kafka.Message{}
 	}
 
 	return message, args.Error(1)
 }
 
-func (m *KafkaReaderMock) Close() error {
+func (m *KafkaConsumerMock) SubscribeTopics(topics []string, rebalanceCb kafka.RebalanceCb) (err error) {
+	args := m.Called(topics, rebalanceCb)
+	return args.Error(0)
+}
+
+func (m *KafkaConsumerMock) Close() error {
 	args := m.Called()
 	return args.Error(0)
 }
@@ -32,51 +39,65 @@ func (m *KafkaReaderMock) Close() error {
 func TestKafkaConsumerClient_Consume(t *testing.T) {
 	tests := []struct {
 		name          string
-		reader        *KafkaReaderMock
+		topic         string
+		consumerMock  *KafkaConsumerMock
 		expectedEvent *EventWrapper
-		expectMocks   func(t *testing.T, reader *KafkaReaderMock)
+		expectMocks   func(t *testing.T, consumerMock *KafkaConsumerMock)
 	}{
 		{
-			name:   "can consume event",
-			reader: &KafkaReaderMock{},
+			name:         "can consume event",
+			topic:        "test",
+			consumerMock: &KafkaConsumerMock{},
 			expectedEvent: &EventWrapper{
 				Topic: "test",
-				Data:  "some data",
+				Event: "some data",
 			},
-			expectMocks: func(t *testing.T, reader *KafkaReaderMock) {
-				message := kafka.Message{
-					Value: []byte(`{"topic":"test","data":"some data"}`),
+			expectMocks: func(t *testing.T, consumerMock *KafkaConsumerMock) {
+				topic := "test"
+				msg := &kafka.Message{
+					TopicPartition: kafka.TopicPartition{
+						Topic:     &topic,
+						Partition: 0,
+					},
+					Value: []byte(`{"event":"some data"}`),
 				}
 
-				reader.On("ReadMessage", mock.Anything).Return(message, nil)
+				consumerMock.On("SubscribeTopics", []string{topic}, mock.AnythingOfType("kafka.RebalanceCb")).Return(nil)
+				consumerMock.On("ReadMessage", mock.AnythingOfType("time.Duration")).Return(msg, nil)
+				consumerMock.On("Close").Return(nil)
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.expectMocks != nil {
-				tt.expectMocks(t, tt.reader)
+				tt.expectMocks(t, tt.consumerMock)
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
 
 			s := &KafkaConsumerClient{
-				reader: tt.reader,
+				svc: tt.consumerMock,
 			}
 
 			events := make(chan *EventWrapper)
+			wg := &sync.WaitGroup{}
 
+			wg.Add(1)
 			go func() {
 				for event := range events {
 					assert.Equal(t, tt.expectedEvent, event)
 					cancel()
 				}
+
+				wg.Done()
 			}()
 
-			s.Consume(ctx, events)
+			s.Consume(ctx, tt.topic, events)
+			wg.Wait()
 
 			if tt.expectMocks != nil {
-				tt.reader.AssertExpectations(t)
+				tt.consumerMock.AssertExpectations(t)
 			}
 		})
 	}

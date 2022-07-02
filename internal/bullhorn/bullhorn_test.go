@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/danielMensah/bullhorn-sync-poc/internal/config"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
 )
@@ -33,50 +34,27 @@ var (
 
 func TestNew(t *testing.T) {
 	tests := []struct {
-		name        string
-		config      Config
-		oauthConfig *oauth2.Config
-		wantErr     bool
+		name    string
+		config  *config.Config
+		wantErr bool
 	}{
 		{
 			name: "ok",
-			config: Config{
-				Username:        "user",
-				Password:        "pass",
-				SubscriptionUrl: "sub",
-				EntityUrl:       "ent",
-			},
-			oauthConfig: &oauth2.Config{
-				ClientID:     "clientId",
-				ClientSecret: "secret",
-				Endpoint: oauth2.Endpoint{
-					AuthURL:   "auth",
-					TokenURL:  tokenServer.URL,
-					AuthStyle: 0,
-				},
-				RedirectURL: "redirect",
-				Scopes:      nil,
+			config: &config.Config{
+				BullhornUsername:        "user",
+				BullhornPassword:        "pass",
+				BullhornSubscriptionUrl: "sub",
+				BullhornEntityUrl:       "ent",
 			},
 			wantErr: false,
 		},
 		{
 			name: "handle error",
-			config: Config{
-				Username:        "user",
-				Password:        "pass",
-				SubscriptionUrl: "sub",
-				EntityUrl:       "ent",
-			},
-			oauthConfig: &oauth2.Config{
-				ClientID:     "clientId",
-				ClientSecret: "secret",
-				Endpoint: oauth2.Endpoint{
-					AuthURL:   "auth",
-					TokenURL:  "someUrl",
-					AuthStyle: 0,
-				},
-				RedirectURL: "redirect",
-				Scopes:      nil,
+			config: &config.Config{
+				BullhornUsername:        "user",
+				BullhornPassword:        "pass",
+				BullhornSubscriptionUrl: "sub",
+				BullhornEntityUrl:       "ent",
 			},
 			wantErr: true,
 		},
@@ -84,7 +62,7 @@ func TestNew(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.TODO()
-			got, err := New(ctx, tt.config, tt.oauthConfig)
+			got, err := New(ctx, tt.config)
 
 			if !tt.wantErr {
 				assert.NoError(t, err)
@@ -99,28 +77,17 @@ func TestNew(t *testing.T) {
 func TestClient_GetEvents(t *testing.T) {
 	tests := []struct {
 		name        string
-		config      Config
+		config      *config.Config
 		oauthConfig *oauth2.Config
 		want        []Event
 		wantErr     bool
 	}{
 		{
 			name: "ok",
-			config: Config{
-				Username:        "user",
-				Password:        "pass",
-				SubscriptionUrl: validSubServer.URL,
-			},
-			oauthConfig: &oauth2.Config{
-				ClientID:     "clientId",
-				ClientSecret: "secret",
-				Endpoint: oauth2.Endpoint{
-					AuthURL:   "auth",
-					TokenURL:  tokenServer.URL,
-					AuthStyle: 0,
-				},
-				RedirectURL: "redirect",
-				Scopes:      nil,
+			config: &config.Config{
+				BullhornUsername:        "user",
+				BullhornPassword:        "pass",
+				BullhornSubscriptionUrl: validSubServer.URL,
 			},
 			want: []Event{
 				{
@@ -136,42 +103,20 @@ func TestClient_GetEvents(t *testing.T) {
 		},
 		{
 			name: "non OK response",
-			config: Config{
-				Username:        "user",
-				Password:        "pass",
-				SubscriptionUrl: invalidSubServer.URL,
-			},
-			oauthConfig: &oauth2.Config{
-				ClientID:     "clientId",
-				ClientSecret: "secret",
-				Endpoint: oauth2.Endpoint{
-					AuthURL:   "auth",
-					TokenURL:  tokenServer.URL,
-					AuthStyle: 0,
-				},
-				RedirectURL: "redirect",
-				Scopes:      nil,
+			config: &config.Config{
+				BullhornUsername:        "user",
+				BullhornPassword:        "pass",
+				BullhornSubscriptionUrl: invalidSubServer.URL,
 			},
 			want:    nil,
 			wantErr: true,
 		},
 		{
 			name: "invalid response from sub call",
-			config: Config{
-				Username:        "user",
-				Password:        "pass",
-				SubscriptionUrl: invalidSubServer.URL,
-			},
-			oauthConfig: &oauth2.Config{
-				ClientID:     "clientId",
-				ClientSecret: "secret",
-				Endpoint: oauth2.Endpoint{
-					AuthURL:   "auth",
-					TokenURL:  tokenServer.URL,
-					AuthStyle: 0,
-				},
-				RedirectURL: "redirect",
-				Scopes:      nil,
+			config: &config.Config{
+				BullhornUsername:        "user",
+				BullhornPassword:        "pass",
+				BullhornSubscriptionUrl: invalidSubServer.URL,
 			},
 			want:    nil,
 			wantErr: true,
@@ -179,7 +124,7 @@ func TestClient_GetEvents(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := New(context.TODO(), tt.config, tt.oauthConfig)
+			c, err := New(context.Background(), tt.config)
 			assert.NoError(t, err)
 
 			got, err := c.GetEvents()

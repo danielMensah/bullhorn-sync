@@ -1,29 +1,27 @@
 package poller
 
 import (
+	"context"
 	"time"
 
-	"github.com/danielMensah/bullhorn-sync-poc/internal/broker"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/bullhorn"
 	log "github.com/sirupsen/logrus"
 )
 
 type Poller struct {
-	bh   bullhorn.Bullhorn
-	Done chan bool
+	bh bullhorn.Bullhorn
 }
 
 func New(bhClient bullhorn.Bullhorn) *Poller {
 	return &Poller{
-		bh:   bhClient,
-		Done: make(chan bool),
+		bh: bhClient,
 	}
 }
 
-func (p *Poller) Run(events chan<- *broker.EventWrapper) {
+func (p *Poller) Run(ctx context.Context, events chan<- interface{}) {
 	for {
 		select {
-		case <-p.Done:
+		case <-ctx.Done():
 			close(events)
 			return
 		default:
@@ -32,10 +30,7 @@ func (p *Poller) Run(events chan<- *broker.EventWrapper) {
 				log.WithError(err).Error("getting entities")
 			}
 
-			events <- &broker.EventWrapper{
-				Topic: "poll_event",
-				Data:  fetchedEvents,
-			}
+			events <- fetchedEvents
 
 			time.Sleep(10 * time.Second)
 		}
