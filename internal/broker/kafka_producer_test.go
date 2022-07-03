@@ -54,15 +54,24 @@ func TestKafkaPublisherClient_Publish(t *testing.T) {
 	tests := []struct {
 		name         string
 		topic        string
-		event        []interface{}
+		event        []*EventWrapper
 		workers      int
 		producerMock *KafkaProducerMock
 		expectMocks  func(t *testing.T, conn *KafkaProducerMock)
 	}{
 		{
-			name:         "can produce event",
-			topic:        "test",
-			event:        []interface{}{"some event 1", "some event 2"},
+			name:  "can produce event",
+			topic: "test",
+			event: []*EventWrapper{
+				{
+					Topic: "test",
+					Event: "some data 1",
+				},
+				{
+					Topic: "test",
+					Event: "some data 2",
+				},
+			},
 			workers:      1,
 			producerMock: &KafkaProducerMock{},
 			expectMocks: func(t *testing.T, producerMock *KafkaProducerMock) {
@@ -82,7 +91,7 @@ func TestKafkaPublisherClient_Publish(t *testing.T) {
 				svc: tt.producerMock,
 			}
 
-			events := make(chan interface{})
+			events := make(chan *EventWrapper)
 			wg := &sync.WaitGroup{}
 
 			ctx, cancel := context.WithCancel(context.Background())

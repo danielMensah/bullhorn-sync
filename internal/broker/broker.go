@@ -16,5 +16,5 @@ type Consumer interface {
 
 type Producer interface {
 	MonitorEvents(wg *sync.WaitGroup)
-	Produce(ctx context.Context, topic string, events <-chan interface{}, wg *sync.WaitGroup)
+	Produce(ctx context.Context, events <-chan *EventWrapper, wg *sync.WaitGroup)
 }

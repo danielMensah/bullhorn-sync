@@ -33,7 +33,7 @@ func NewKafkaProducer(addr string) (Producer, error) {
 	return &KafkaProducerClient{svc: p}, nil
 }
 
-func (p *KafkaProducerClient) Produce(ctx context.Context, topic string, events <-chan interface{}, wg *sync.WaitGroup) {
+func (p *KafkaProducerClient) Produce(ctx context.Context, events <-chan *EventWrapper, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
@@ -45,20 +45,20 @@ func (p *KafkaProducerClient) Produce(ctx context.Context, topic string, events 
 
 			p.svc.Close()
 			return
-		case event, ok := <-events:
+		case wrappedEvent, ok := <-events:
 			if !ok {
 				return
 			}
 
-			marshalledData, err := json.Marshal(event)
+			marshalledEvent, err := json.Marshal(wrappedEvent.Event)
 			if err != nil {
 				log.WithError(err).Error("marshalling event")
 				return
 			}
 
 			message := &kafka.Message{
-				Value:          marshalledData,
-				TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
+				Value:          marshalledEvent,
+				TopicPartition: kafka.TopicPartition{Topic: &wrappedEvent.Topic, Partition: kafka.PartitionAny},
 			}
 
 			p.svc.ProduceChannel() <- message

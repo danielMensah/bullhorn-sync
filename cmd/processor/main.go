@@ -29,9 +29,9 @@ func main() {
 		log.WithError(err).Fatal("creating new consumer")
 	}
 
-	publisher, err := broker.NewKafkaProducer(cfg.KafkaAddress)
+	producer, err := broker.NewKafkaProducer(cfg.KafkaAddress)
 	if err != nil {
-		log.WithError(err).Fatal("creating new publisher")
+		log.WithError(err).Fatal("creating new producer")
 	}
 
 	bhClient, err := bullhorn.New(ctx, cfg)
@@ -39,18 +39,18 @@ func main() {
 		log.WithError(err).Fatal("creating new bullhorn")
 	}
 
-	publisherEvents := make(chan *broker.EventWrapper)
-	pollerEvents := make(chan *broker.EventWrapper)
+	entityChangesChan := make(chan *broker.EventWrapper)
+	pollerChan := make(chan *broker.EventWrapper)
 
 	wg := &sync.WaitGroup{}
 
 	for i := 0; i < 20; i++ {
 		wg.Add(2)
-		go processEntity(ctx, bhClient, pollerEvents, publisherEvents, wg)
-		go publisher.Produce(ctx, publisherEvents, wg)
+		go processEntity(ctx, bhClient, pollerChan, entityChangesChan, wg)
+		go producer.Produce(ctx, entityChangesChan, wg)
 	}
 
-	consumer.Consume(ctx, "poller_events", pollerEvents)
+	consumer.Consume(ctx, "poller_events", pollerChan)
 	wg.Wait()
 
 	go func() {
@@ -66,17 +66,18 @@ func main() {
 func processEntity(
 	ctx context.Context,
 	bhClient bullhorn.Bullhorn,
-	pollerEvents <-chan *broker.EventWrapper,
-	publisherEvents chan<- *broker.EventWrapper, wg *sync.WaitGroup,
+	pollerChan <-chan *broker.EventWrapper,
+	entityChangesChan chan<- *broker.EventWrapper,
+	wg *sync.WaitGroup,
 ) {
 	defer wg.Done()
 
 	for {
 		select {
 		case <-ctx.Done():
-			close(publisherEvents)
+			close(entityChangesChan)
 			return
-		case events, ok := <-pollerEvents:
+		case events, ok := <-pollerChan:
 			if !ok {
 				return
 			}
@@ -87,9 +88,10 @@ func processEntity(
 				entity, err := bhClient.FetchEntityChanges(event)
 				if err != nil {
 					log.WithError(err).Error("fetching entity changes")
+					return
 				}
 
-				publisherEvents <- &broker.EventWrapper{
+				entityChangesChan <- &broker.EventWrapper{
 					Topic: strings.ToLower(entity.Name),
 					Event: entity.Changes,
 				}

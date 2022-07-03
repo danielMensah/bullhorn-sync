@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/danielMensah/bullhorn-sync-poc/internal/broker"
 	"github.com/danielMensah/bullhorn-sync-poc/internal/bullhorn"
 	log "github.com/sirupsen/logrus"
 )
@@ -18,7 +19,7 @@ func New(bhClient bullhorn.Bullhorn) *Poller {
 	}
 }
 
-func (p *Poller) Run(ctx context.Context, events chan<- interface{}) {
+func (p *Poller) Run(ctx context.Context, events chan<- *broker.EventWrapper) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -30,7 +31,10 @@ func (p *Poller) Run(ctx context.Context, events chan<- interface{}) {
 				log.WithError(err).Error("getting entities")
 			}
 
-			events <- fetchedEvents
+			events <- &broker.EventWrapper{
+				Topic: "poller_events",
+				Event: fetchedEvents,
+			}
 
 			time.Sleep(10 * time.Second)
 		}

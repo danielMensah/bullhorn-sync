@@ -35,13 +35,13 @@ func main() {
 	}
 	p := poller.New(bhClient)
 
-	events := make(chan interface{})
+	events := make(chan *broker.EventWrapper)
 	wg := &sync.WaitGroup{}
 
 	for i := 0; i < 20; i++ {
 		wg.Add(2)
 		go producer.MonitorEvents(wg)
-		go producer.Produce(ctx, "bullhorn_events", events, wg)
+		go producer.Produce(ctx, events, wg)
 	}
 
 	p.Run(ctx, events)

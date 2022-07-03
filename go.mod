@@ -3,19 +3,19 @@ module github.com/danielMensah/bullhorn-sync-poc
 go 1.18
 
 require (
+	github.com/confluentinc/confluent-kafka-go v1.9.0
 	github.com/gocql/gocql v1.1.0
 	github.com/hashicorp/go-retryablehttp v0.7.0
 	github.com/jackc/pgx/v4 v4.16.1
 	github.com/scylladb/gocqlx/v2 v2.7.0
-	github.com/segmentio/kafka-go v0.4.32
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.7.1
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
+	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
-	github.com/confluentinc/confluent-kafka-go v1.9.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
@@ -31,13 +31,11 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
 	github.com/jackc/pgtype v1.11.0 // indirect
 	github.com/jackc/puddle v1.2.1 // indirect
-	github.com/klauspost/compress v1.15.6 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.1 // indirect
-	github.com/pierrec/lz4/v4 v4.1.14 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/scylladb/go-reflectx v1.0.1 // indirect
 	github.com/spf13/afero v1.8.2 // indirect
@@ -55,6 +53,5 @@ require (
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0 // indirect
 )
