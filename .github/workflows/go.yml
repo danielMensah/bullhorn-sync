@@ -30,4 +30,4 @@ jobs:
         run: test -z $(gofmt -s -l -w .)
 
       - name: Test
-          - run: go test -v ./... --shuffle=on --race
+        run: go test -v ./... --shuffle=on --race
