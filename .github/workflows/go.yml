@@ -1,0 +1,33 @@
+name: Go
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+
+      - name: Set up golangci-lint
+        run: wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.35.2
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: Go lint
+        run: ./bin/golangci-lint run ./...
+
+      - name: Go format
+        run: test -z $(gofmt -s -l -w .)
+
+      - name: Test
+          - run: go test -v ./... --shuffle=on --race

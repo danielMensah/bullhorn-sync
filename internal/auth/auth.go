@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"math/rand"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -18,7 +16,6 @@ var (
 	retryWaitMin = 1 * time.Second
 	retryWaitMax = 30 * time.Second
 	retryMax     = 4
-	logger       = log.New(os.Stderr, "", log.LstdFlags)
 )
 
 // Oauth2 exposes oath2 methods
@@ -32,6 +29,7 @@ type Oauth2 interface {
 	Client(ctx context.Context, t *oauth2.Token) *http.Client
 }
 
+// New creates a new retryablehttp.Client
 func New(ctx context.Context, usr, pass string, oauth Oauth2) (*retryablehttp.Client, error) {
 	state := getState(10)
 
@@ -56,7 +54,6 @@ func New(ctx context.Context, usr, pass string, oauth Oauth2) (*retryablehttp.Cl
 
 	return &retryablehttp.Client{
 		HTTPClient:   httpClient,
-		Logger:       logger,
 		RetryWaitMin: retryWaitMin,
 		RetryWaitMax: retryWaitMax,
 		RetryMax:     retryMax,
@@ -65,6 +62,10 @@ func New(ctx context.Context, usr, pass string, oauth Oauth2) (*retryablehttp.Cl
 	}, nil
 }
 
+// getState returns a random string of length n which is recommended by Bullhorn.
+// The client uses this value to maintain state between the request and the callback.
+// It should be used for preventing cross-site request forgery.
+// docs: https://bullhorn.github.io/Getting-Started-with-REST/
 func getState(length int) string {
 	rand.Seed(time.Now().UnixNano())
 	b := make([]byte, length)

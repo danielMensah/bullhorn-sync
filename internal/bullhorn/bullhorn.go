@@ -1,15 +1,13 @@
 package bullhorn
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 
-	"github.com/danielMensah/bullhorn-sync-poc/internal/auth"
-	"github.com/danielMensah/bullhorn-sync-poc/internal/config"
 	"github.com/hashicorp/go-retryablehttp"
-	"golang.org/x/oauth2"
 )
 
 // Client is the Bullhorn client
@@ -19,41 +17,25 @@ type Client struct {
 	httpClient      *retryablehttp.Client
 }
 
+// Bullhorn is the interface that defines the methods that a bullhorn client must implement
 type Bullhorn interface {
 	GetEvents() ([]Event, error)
 	FetchEntityChanges(event Event) (Entity, error)
-	request(method, url string, body interface{}) ([]byte, error)
+	request(url string) ([]byte, error)
 }
 
 // New returns a new Bullhorn client.
-func New(ctx context.Context, config *config.Config) (Bullhorn, error) {
-	oauthConfig := &oauth2.Config{
-		ClientID:     config.BullhornClientID,
-		ClientSecret: config.BullhornSecret,
-		Endpoint: oauth2.Endpoint{
-			AuthURL:   config.BullhornAuthUrl,
-			TokenURL:  config.BullhornTokenUrl,
-			AuthStyle: 0,
-		},
-		RedirectURL: config.BullhornRedirectUrl,
-		Scopes:      nil,
-	}
-
-	client, err := auth.New(ctx, config.BullhornUsername, config.BullhornPassword, oauthConfig)
-	if err != nil {
-		return nil, err
-	}
-
+func New(subscriptionUrl, entityUrl string, httpClient *retryablehttp.Client) Bullhorn {
 	return &Client{
-		subscriptionUrl: config.BullhornSubscriptionUrl,
-		entityUrl:       config.BullhornEntityUrl,
-		httpClient:      client,
-	}, nil
+		subscriptionUrl: subscriptionUrl,
+		entityUrl:       entityUrl,
+		httpClient:      httpClient,
+	}
 }
 
 // GetEvents returns the events from the bullhorn subscription url
 func (c *Client) GetEvents() ([]Event, error) {
-	body, err := c.request("GET", c.subscriptionUrl, nil)
+	body, err := c.request(c.subscriptionUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +56,7 @@ func (c *Client) FetchEntityChanges(event Event) (Entity, error) {
 		fields := "*"
 		url := fmt.Sprintf("%s/entity/%s/%d?fields=%s", c.entityUrl, event.EntityName, event.EntityId, fields)
 
-		body, err := c.request("GET", url, nil)
+		body, err := c.request(url)
 		if err != nil {
 			return Entity{}, fmt.Errorf("failed getting entity (%s) with id: %d : %w", event.EntityName, event.EntityId, err)
 		}
@@ -89,7 +71,7 @@ func (c *Client) FetchEntityChanges(event Event) (Entity, error) {
 		fields := strings.Join(event.UpdatedProperties, ",")
 		url := fmt.Sprintf("%s/entity/%s/%d?fields=%s", c.entityUrl, event.EntityName, event.EntityId, fields)
 
-		body, err := c.request("GET", url, nil)
+		body, err := c.request(url)
 		if err != nil {
 			return Entity{}, fmt.Errorf("failed getting entity (%s) with id: %d : %w", event.EntityName, event.EntityId, err)
 		}
@@ -111,4 +93,23 @@ func (c *Client) FetchEntityChanges(event Event) (Entity, error) {
 	}
 
 	return Entity{}, fmt.Errorf("entity event type not supported: %s", event.EntityEventType)
+}
+
+func (c *Client) request(url string) ([]byte, error) {
+	resp, err := c.httpClient.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("making request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	response, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading request body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("non ok response for request: %d status code %v: %s", resp.StatusCode, resp, string(response))
+	}
+
+	return response, nil
 }

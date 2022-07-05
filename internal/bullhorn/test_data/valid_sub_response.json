@@ -1,0 +1,16 @@
+{
+  "requestId": 1,
+  "events": [
+    {
+      "eventId": "abc",
+      "eventTimestamp": 1633475158,
+      "entityName": "candidate",
+      "entityId": 1,
+      "entityEventType": "UPDATE",
+      "updatedProperties": [
+        "name",
+        "dob"
+      ]
+    }
+  ]
+}

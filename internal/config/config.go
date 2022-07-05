@@ -2,64 +2,57 @@ package config
 
 import (
 	"fmt"
-	"reflect"
+	"path/filepath"
+	"strings"
+	"sync"
 
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"golang.org/x/oauth2"
-	"gopkg.in/yaml.v2"
 )
 
+// Interface embeds other interfaces to provide easy access to the configs
+type Interface interface {
+	Bullhorn
+	Kafka
+	Oauth
+}
+
+// Config is a wrapper around the viper config
 type Config struct {
-	AuthConfig               oauth2.Config `mapstructure:"AUTH_CONFIG"`
-	KafkaAddress             string        `mapstructure:"KAFKA_ADDRESS"`
-	BullhornUsername         string        `mapstructure:"BULLHORN_USERNAME"`
-	BullhornPassword         string        `mapstructure:"BULLHORN_PASSWORD"`
-	BullhornSubscriptionUrl  string        `mapstructure:"BULLHORN_SUBSCRIPTION_URL"`
-	BullhornEntityUrl        string        `mapstructure:"BULLHORN_ENTITY_URL"`
-	BullhornClientID         string        `mapstructure:"BULLHORN_CLIENT_ID"`
-	BullhornSecret           string        `mapstructure:"BULLHORN_SECRET"`
-	BullhornAuthUrl          string        `mapstructure:"BULLHORN_AUTH_URL"`
-	BullhornTokenUrl         string        `mapstructure:"BULLHORN_TOKEN_URL"`
-	BullhornRedirectUrl      string        `mapstructure:"BULLHORN_REDIRECT_URL"`
-	CassandraHosts           []string      `mapstructure:"CASSANDRA_HOSTS"`
-	CassandraKeyspace        string        `mapstructure:"CASSANDRA_KEYSPACE"`
-	CassandraUsername        string        `mapstructure:"CASSANDRA_USERNAME"`
-	CassandraPassword        string        `mapstructure:"CASSANDRA_PASSWORD"`
-	PostgresConnectionString string        `mapstructure:"POSTGRES_CONNECTION_STRING"`
+	*viper.Viper
 }
 
-func LoadConfig() (*Config, error) {
-	viper.AddConfigPath(".")
-	viper.SetConfigName("app")
-	viper.SetConfigType("env")
+var once sync.Once
 
-	viper.AutomaticEnv()
+// LoadConfig loads the config from the command line flags and environment variables
+func LoadConfig() (Interface, error) {
+	once.Do(func() {
+		initFlags()
+	})
 
-	err := viper.ReadInConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to read config: %v", err)
+	v := viper.NewWithOptions()
+	pflag.Parse()
+
+	_ = v.BindPFlags(pflag.CommandLine)
+	if envFile := v.GetString("env"); envFile != "" {
+		if err := loadFromEnvFile(v, envFile); err != nil {
+			return nil, fmt.Errorf("failed to load env file: %w", err)
+		}
+	} else {
+		v.AutomaticEnv()
 	}
 
-	var config Config
-	opt := viper.DecodeHook(
-		yamlStringToStruct(config),
-	)
-	err = viper.Unmarshal(&config, opt)
-
-	return &config, nil
+	return Config{v}, nil
 }
 
-func yamlStringToStruct(m interface{}) func(rf reflect.Kind, rt reflect.Kind, data interface{}) (interface{}, error) {
-	return func(rf reflect.Kind, rt reflect.Kind, data interface{}) (interface{}, error) {
-		if rf != reflect.String || rt != reflect.Struct {
-			return data, nil
-		}
+func initFlags() {
+	pflag.String("env", "", "load environment variables from file")
+}
 
-		raw := data.(string)
-		if raw == "" {
-			return m, nil
-		}
+func loadFromEnvFile(v *viper.Viper, path string) error {
+	v.SetConfigFile(path)
+	envType := strings.TrimPrefix(filepath.Ext(path), ".")
+	v.SetConfigType(envType)
 
-		return m, yaml.UnmarshalStrict([]byte(raw), &m)
-	}
+	return v.ReadInConfig()
 }

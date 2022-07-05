@@ -4,13 +4,12 @@ import (
 	"context"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/stretchr/testify/mock"
 )
 
-// KafkaProducerMock is a mock of the queue methods for use in the services using the broker client
+// KafkaProducerMock is a mock of the broker methods for use in the services using the broker client
 type KafkaProducerMock struct {
 	mock.Mock
 }
@@ -76,8 +75,6 @@ func TestKafkaPublisherClient_Publish(t *testing.T) {
 			producerMock: &KafkaProducerMock{},
 			expectMocks: func(t *testing.T, producerMock *KafkaProducerMock) {
 				producerMock.On("ProduceChannel").Return(make(chan *kafka.Message))
-				producerMock.On("Flush", 100).Return(0)
-				producerMock.On("Close").Return().After(100 * time.Millisecond)
 			},
 		},
 	}
@@ -87,7 +84,7 @@ func TestKafkaPublisherClient_Publish(t *testing.T) {
 				tt.expectMocks(t, tt.producerMock)
 			}
 
-			c := &KafkaProducerClient{
+			c := &kafkaProducerClient{
 				svc: tt.producerMock,
 			}
 
@@ -97,7 +94,7 @@ func TestKafkaPublisherClient_Publish(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			for i := 0; i < tt.workers; i++ {
 				wg.Add(1)
-				go c.Produce(ctx, tt.topic, events, wg)
+				go c.Produce(ctx, events, wg)
 			}
 
 			for _, event := range tt.event {

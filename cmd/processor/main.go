@@ -8,9 +8,10 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/danielMensah/bullhorn-sync-poc/internal/broker"
-	"github.com/danielMensah/bullhorn-sync-poc/internal/bullhorn"
-	"github.com/danielMensah/bullhorn-sync-poc/internal/config"
+	"github.com/danielMensah/bullhorn-sync/internal/auth"
+	"github.com/danielMensah/bullhorn-sync/internal/broker"
+	"github.com/danielMensah/bullhorn-sync/internal/bullhorn"
+	"github.com/danielMensah/bullhorn-sync/internal/config"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -23,21 +24,28 @@ func main() {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	go waitForCancel(cancel)
 
-	consumer, err := broker.NewKafkaConsumer(cfg.KafkaAddress, "groupID")
+	client, err := auth.New(ctx, cfg.BullhornUsername(), cfg.BullhornPassword(), cfg.OauthConfig())
+	if err != nil {
+		log.WithError(err).Fatal("creating new auth")
+	}
+
+	bhClient := bullhorn.New(cfg.BullhornSubscriptionUrl(), cfg.BullhornEntityUrl(), client)
+
+	consumer, err := broker.NewKafkaConsumer(cfg.KafkaAddress(), "groupID")
 	if err != nil {
 		log.WithError(err).Fatal("creating new consumer")
 	}
+	defer consumer.Close()
 
-	producer, err := broker.NewKafkaProducer(cfg.KafkaAddress)
+	producer, err := broker.NewKafkaProducer(cfg.KafkaAddress())
 	if err != nil {
 		log.WithError(err).Fatal("creating new producer")
 	}
+	defer producer.Close()
 
-	bhClient, err := bullhorn.New(ctx, cfg)
-	if err != nil {
-		log.WithError(err).Fatal("creating new bullhorn")
-	}
+	go producer.MonitorEvents()
 
 	entityChangesChan := make(chan *broker.EventWrapper)
 	pollerChan := make(chan *broker.EventWrapper)
@@ -52,15 +60,6 @@ func main() {
 
 	consumer.Consume(ctx, "poller_events", pollerChan)
 	wg.Wait()
-
-	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-		<-c
-
-		log.Info("terminate signal received, exiting...")
-		cancel()
-	}()
 }
 
 func processEntity(
@@ -98,4 +97,13 @@ func processEntity(
 			}
 		}
 	}
+}
+
+func waitForCancel(cancelFunc context.CancelFunc) {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	<-c
+
+	cancelFunc()
+	log.Info("terminate signal received, exiting...")
 }

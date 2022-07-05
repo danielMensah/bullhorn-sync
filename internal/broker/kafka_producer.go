@@ -10,40 +10,41 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type KafkaProducerClient struct {
+type kafkaProducerClient struct {
 	svc KafkaProducerService
 }
 
-// KafkaProducerService is for mainly testing purposes
+// KafkaProducerService is an interface to mock the kafka producer for testing
 type KafkaProducerService interface {
+	// ProduceChannel returns the channel to send messages to the kafka topic
 	ProduceChannel() chan *kafka.Message
+	// Events returns the channel to listen for kafka events
 	Events() chan kafka.Event
+	// Flush flushes and wait for all messages to be delivered
 	Flush(timeoutMs int) int
+	// Len returns the number of messages pending in the producer
 	Len() int
+	// Close closes the producer
 	Close()
 }
 
+// NewKafkaProducer creates a new KafkaProducerClient
 func NewKafkaProducer(addr string) (Producer, error) {
 	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": addr})
 	if err != nil {
 		return nil, err
 	}
 
-	p.Events()
-	return &KafkaProducerClient{svc: p}, nil
+	return &kafkaProducerClient{svc: p}, nil
 }
 
-func (p *KafkaProducerClient) Produce(ctx context.Context, events <-chan *EventWrapper, wg *sync.WaitGroup) {
+// Produce sends the events to the kafka topic
+func (p *kafkaProducerClient) Produce(ctx context.Context, events <-chan *EventWrapper, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
 		select {
 		case <-ctx.Done():
-			for p.svc.Flush(100) > 0 {
-				log.Warnf("%d messages still pending", p.svc.Len())
-			}
-
-			p.svc.Close()
 			return
 		case wrappedEvent, ok := <-events:
 			if !ok {
@@ -66,9 +67,8 @@ func (p *KafkaProducerClient) Produce(ctx context.Context, events <-chan *EventW
 	}
 }
 
-func (p *KafkaProducerClient) MonitorEvents(wg *sync.WaitGroup) {
-	defer wg.Done()
-
+// MonitorEvents listens for kafka events and logs them
+func (p *kafkaProducerClient) MonitorEvents() {
 	for e := range p.svc.Events() {
 		switch ev := e.(type) {
 		case *kafka.Message:
@@ -85,4 +85,13 @@ func (p *KafkaProducerClient) MonitorEvents(wg *sync.WaitGroup) {
 			fmt.Printf("Ignored event: %s\n", ev)
 		}
 	}
+}
+
+// Close closes the kafka producer
+func (p *kafkaProducerClient) Close() {
+	for p.svc.Flush(100) > 0 {
+		log.Warnf("%d messages still pending", p.svc.Len())
+	}
+
+	p.svc.Close()
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// KafkaConsumerMock is a mock of the queue methods for use in the services using the broker client
+// KafkaConsumerMock is a mock of the broker methods for use in the services using the broker client
 type KafkaConsumerMock struct {
 	mock.Mock
 }
@@ -64,7 +64,6 @@ func TestKafkaConsumerClient_Consume(t *testing.T) {
 
 				consumerMock.On("SubscribeTopics", []string{topic}, mock.AnythingOfType("kafka.RebalanceCb")).Return(nil)
 				consumerMock.On("ReadMessage", mock.AnythingOfType("time.Duration")).Return(msg, nil)
-				consumerMock.On("Close").Return(nil)
 			},
 		},
 	}
@@ -76,7 +75,7 @@ func TestKafkaConsumerClient_Consume(t *testing.T) {
 
 			ctx, cancel := context.WithCancel(context.Background())
 
-			s := &KafkaConsumerClient{
+			s := &kafkaConsumerClient{
 				svc: tt.consumerMock,
 			}
 

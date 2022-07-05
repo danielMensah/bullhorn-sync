@@ -1,4 +1,4 @@
-module github.com/danielMensah/bullhorn-sync-poc
+module github.com/danielMensah/bullhorn-sync
 
 go 1.18
 

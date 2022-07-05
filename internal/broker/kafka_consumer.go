@@ -9,17 +9,18 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type KafkaConsumerClient struct {
+type kafkaConsumerClient struct {
 	svc KafkaConsumerService
 }
 
-// KafkaConsumerService is for mainly testing purposes
+// KafkaConsumerService is an interface to mock the kafka consumer for testing
 type KafkaConsumerService interface {
 	ReadMessage(timeout time.Duration) (*kafka.Message, error)
 	SubscribeTopics(topics []string, rebalanceCb kafka.RebalanceCb) (err error)
 	Close() error
 }
 
+// NewKafkaConsumer creates a new kafka consumer
 func NewKafkaConsumer(addr string, groupID string) (Consumer, error) {
 	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers": addr,
@@ -30,10 +31,11 @@ func NewKafkaConsumer(addr string, groupID string) (Consumer, error) {
 		return nil, err
 	}
 
-	return &KafkaConsumerClient{svc: consumer}, nil
+	return &kafkaConsumerClient{svc: consumer}, nil
 }
 
-func (c *KafkaConsumerClient) Consume(ctx context.Context, topic string, event chan<- *EventWrapper) {
+// Consume consumes messages from the kafka topic
+func (c *kafkaConsumerClient) Consume(ctx context.Context, topic string, event chan<- *EventWrapper) {
 	err := c.svc.SubscribeTopics([]string{topic}, nil)
 	if err != nil {
 		return
@@ -42,7 +44,6 @@ func (c *KafkaConsumerClient) Consume(ctx context.Context, topic string, event c
 	for {
 		select {
 		case <-ctx.Done():
-			c.svc.Close()
 			close(event)
 			return
 		default:
@@ -63,4 +64,9 @@ func (c *KafkaConsumerClient) Consume(ctx context.Context, topic string, event c
 			event <- e
 		}
 	}
+}
+
+// Close closes the kafka consumer
+func (c *kafkaConsumerClient) Close() error {
+	return c.svc.Close()
 }

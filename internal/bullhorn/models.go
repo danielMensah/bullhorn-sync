@@ -1,11 +1,15 @@
 package bullhorn
 
+// EventType is the type of event emitted by Bullhorn
 type EventType string
 
 const (
-	EventTypeInserted EventType = "INSERT"
-	EventTypeUpdated  EventType = "UPDATE"
-	EventTypeDeleted  EventType = "DELETE"
+	// EventTypeInserted is the type of event emitted when an entity is inserted
+	EventTypeInserted EventType = "INSERTED"
+	// EventTypeUpdated is the type of event emitted when an entity is updated
+	EventTypeUpdated EventType = "UPDATED"
+	// EventTypeDeleted is the type of event emitted when an entity is deleted
+	EventTypeDeleted EventType = "DELETED"
 )
 
 // RequestResponse models subscription request response

@@ -1,94 +1,72 @@
 package bullhorn
 
 import (
-	"context"
+	_ "embed"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/danielMensah/bullhorn-sync-poc/internal/config"
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
 )
 
-const (
-	validSub   = `{"requestId":1,"events":[{"eventId":"abc","eventTimestamp":1633475158,"entityName":"candidate","entityId":1,"entityEventType":"UPDATE","updatedProperties":["name","dob"]}]}`
-	invalidSub = `"requestId":1,"events":[{"eventId":"abc","eventTimestamp":1633475158,"entityName":"candidate","entityId":1,"entityEventType":"UPDATE","updatedProperties":["name","dob"]}]`
-)
+//go:embed test_data/valid_sub_response.json
+var validSub string
+
+//go:embed test_data/invalid_sub_response.json
+var invalidSub string
 
 var (
-	tokenServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(200)
-		_, _ = fmt.Fprint(w, "access_token=eeybb")
-	}))
-	validSubServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	okServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		_, _ = fmt.Fprint(w, validSub)
 	}))
-	invalidSubServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(400)
+	invalidResponseServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
 		_, _ = fmt.Fprint(w, invalidSub)
+	}))
+	nonOkServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(400)
 	}))
 )
 
 func TestNew(t *testing.T) {
 	tests := []struct {
-		name    string
-		config  *config.Config
-		wantErr bool
+		name            string
+		subscriptionUrl string
+		entityUrl       string
 	}{
 		{
-			name: "ok",
-			config: &config.Config{
-				BullhornUsername:        "user",
-				BullhornPassword:        "pass",
-				BullhornSubscriptionUrl: "sub",
-				BullhornEntityUrl:       "ent",
-			},
-			wantErr: false,
-		},
-		{
-			name: "handle error",
-			config: &config.Config{
-				BullhornUsername:        "user",
-				BullhornPassword:        "pass",
-				BullhornSubscriptionUrl: "sub",
-				BullhornEntityUrl:       "ent",
-			},
-			wantErr: true,
+			name:            "can create new bullhorn instance",
+			subscriptionUrl: "https://bullhorn.com/subscription",
+			entityUrl:       "https://bullhorn.com/entity",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.TODO()
-			got, err := New(ctx, tt.config)
-
-			if !tt.wantErr {
-				assert.NoError(t, err)
-				assert.NotNil(t, got)
-			} else {
-				assert.Error(t, err)
-			}
+			got := New(tt.subscriptionUrl, tt.entityUrl, &retryablehttp.Client{})
+			assert.NotNil(t, got)
 		})
 	}
 }
 
 func TestClient_GetEvents(t *testing.T) {
 	tests := []struct {
-		name        string
-		config      *config.Config
-		oauthConfig *oauth2.Config
-		want        []Event
-		wantErr     bool
+		name            string
+		subscriptionUrl string
+		entityUrl       string
+		server          *httptest.Server
+		oauthConfig     *oauth2.Config
+		want            []Event
+		wantErr         bool
 	}{
 		{
-			name: "ok",
-			config: &config.Config{
-				BullhornUsername:        "user",
-				BullhornPassword:        "pass",
-				BullhornSubscriptionUrl: validSubServer.URL,
-			},
+			name:            "ok",
+			server:          okServer,
+			subscriptionUrl: okServer.URL,
+			entityUrl:       "https://bullhorn.com/entity",
 			want: []Event{
 				{
 					EventId:           "abc",
@@ -102,30 +80,31 @@ func TestClient_GetEvents(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "non OK response",
-			config: &config.Config{
-				BullhornUsername:        "user",
-				BullhornPassword:        "pass",
-				BullhornSubscriptionUrl: invalidSubServer.URL,
-			},
-			want:    nil,
-			wantErr: true,
+			name:            "non OK response",
+			server:          nonOkServer,
+			subscriptionUrl: nonOkServer.URL,
+			entityUrl:       "https://bullhorn.com/entity",
+			want:            nil,
+			wantErr:         true,
 		},
 		{
-			name: "invalid response from sub call",
-			config: &config.Config{
-				BullhornUsername:        "user",
-				BullhornPassword:        "pass",
-				BullhornSubscriptionUrl: invalidSubServer.URL,
-			},
-			want:    nil,
-			wantErr: true,
+			name:            "invalid response",
+			server:          invalidResponseServer,
+			subscriptionUrl: nonOkServer.URL,
+			entityUrl:       "https://bullhorn.com/entity",
+			want:            nil,
+			wantErr:         true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := New(context.Background(), tt.config)
-			assert.NoError(t, err)
+			defer tt.server.Close()
+
+			c := New(tt.subscriptionUrl, tt.entityUrl, &retryablehttp.Client{
+				CheckRetry: retryablehttp.DefaultRetryPolicy,
+				Backoff:    retryablehttp.DefaultBackoff,
+			})
+			assert.NotNil(t, c)
 
 			got, err := c.GetEvents()
 

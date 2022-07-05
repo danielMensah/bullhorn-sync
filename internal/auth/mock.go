@@ -8,7 +8,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// Mock is a mock of the queue methods for use in the services using the queue client
+// Mock is a mock of the broker methods for use in the services using the broker client
 type Mock struct {
 	mock.Mock
 }
